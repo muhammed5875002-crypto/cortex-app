@@ -1,3 +1,9 @@
 Flask
 gunicorn
 pyotp
+
+
+
+
+
+requests

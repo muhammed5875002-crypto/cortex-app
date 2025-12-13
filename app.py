@@ -1,3 +1,4 @@
+import requests  # <-- Bunu en üstteki import'ların yanına ekle
 from functools import wraps
 from flask import Response, request # request zaten vardır, yanına ekle
 from flask import Flask, render_template, request, redirect, url_for
@@ -136,6 +137,30 @@ def init_db():
 
 init_db()
 
+# --- API İLE KALORİ HESAPLAMA ---
+def get_calories_from_api(query):
+    APP_ID = os.environ.get('EDAMAM_ID')
+    APP_KEY = os.environ.get('EDAMAM_KEY')
+    
+    if not APP_ID or not APP_KEY:
+        print("API Anahtarları Eksik!")
+        return 0
+        
+    url = "https://api.edamam.com/api/nutrition-data"
+    params = {
+        'app_id': APP_ID,
+        'app_key': APP_KEY,
+        'ingr': query
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+        return data.get('calories', 0)
+    except Exception as e:
+        print(f"API Hatası: {e}")
+        return 0
+    
 # --- ROTALAR ---
 
 # 1. DASHBOARD (ANA SAYFA) - GÜNCELLENDİ
@@ -229,49 +254,25 @@ def add_log():
     conn.close()
     return redirect(url_for('dashboard'))
 # --- 4. BESLENME & KALORİ ---
-@app.route('/nutrition', methods=['GET', 'POST'])
+@app.route('/add_meal', methods=['POST'])
 @requires_auth
-def nutrition():
+def add_meal():
+    meal_name = request.form.get('name')
+    calories = request.form.get('calories')
+    
+    # Eğer kalori boş girildiyse API'ye sor
+    if not calories or calories.strip() == "":
+        detected_calories = get_calories_from_api(meal_name)
+        calories = detected_calories
+    
+    # Veritabanına kaydet
     conn = get_db_connection()
-    bugun = datetime.now().strftime("%Y-%m-%d")
-
-    # Yemek Ekleme veya Silme İşlemi
-    if request.method == 'POST':
-        if 'yemek_ekle' in request.form:
-            isim = request.form.get('isim')
-            kalori = int(request.form.get('kalori'))
-            protein = int(request.form.get('protein'))
-            # Tarih formatı YYYY-MM-DD (Sıralama için daha iyi)
-            conn.execute('INSERT INTO nutrition (isim, kalori, protein, tarih) VALUES (?, ?, ?, ?)', 
-                         (isim, kalori, protein, bugun))
-        
-        elif 'yemek_sil' in request.form:
-            yemek_id = request.form.get('yemek_id')
-            conn.execute('DELETE FROM nutrition WHERE id = ?', (yemek_id,))
-            
-        conn.commit()
-        return redirect(url_for('nutrition'))
-
-    # Verileri Çekme ve Hesaplama
-    yemekler = conn.execute('SELECT * FROM nutrition WHERE tarih=?', (bugun,)).fetchall()
-    
-    # Toplamları Hesapla
-    toplam_kalori = sum(y['kalori'] for y in yemekler)
-    toplam_protein = sum(y['protein'] for y in yemekler)
-    
-    # HEDEFLER (Bunu ileride ayarlardan değiştirebilir yaparız, şimdilik sabit)
-    HEDEF_KALORI = 2500
-    HEDEF_PROTEIN = 160
-    
-    # Yüzdelik Hesaplama (Bar doluluğu için)
-    kalori_yuzde = min(100, int((toplam_kalori / HEDEF_KALORI) * 100))
-    
+    conn.execute('INSERT INTO meals (name, calories) VALUES (?, ?)', 
+                 (meal_name, calories))
+    conn.commit()
     conn.close()
-    return render_template('nutrition.html', yemekler=yemekler, 
-                           toplam_kalori=toplam_kalori, toplam_protein=toplam_protein,
-                           hedef_kalori=HEDEF_KALORI, hedef_protein=HEDEF_PROTEIN,
-                           kalori_yuzde=kalori_yuzde)
-
+    
+    return redirect(url_for('meals')) # Veya senin yönlendirmen nereyeyse
 # --- 5. SPOR MODÜLÜ ---
 @app.route('/sports', methods=['GET', 'POST'])
 @requires_auth
