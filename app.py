@@ -1,24 +1,32 @@
-import requests  # <-- Bunu en üstteki import'ların yanına ekle
-from functools import wraps
-from flask import Response, request # request zaten vardır, yanına ekle
-from flask import Flask, render_template, request, redirect, url_for
-import sqlite3
-from datetime import datetime
 import os
+import sqlite3
+import requests
 import pyotp
+from datetime import datetime
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, Response
 
 app = Flask(__name__)
 
+# --- AYARLAR ---
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 # --- TOTP (GOOGLE AUTHENTICATOR) GÜVENLİK SİSTEMİ ---
 def check_auth(username, password):
-    # 1. Kullanıcı Adı Kontrolü
+    # 1. Kullanıcı Adı Kontrolü (Senin belirlediğin isim)
     if username != 'Muhammed[*]}':
         return False
     
     # 2. Şifre Kontrolü (Render'dan gizli anahtarı çek)
     gizli_anahtar = os.environ.get('TOTP_SECRET')
     
-    # Eğer Render'da anahtarı henüz ayarlamadıysak, eski şifreyle aç (Güvenlik önlemi)
+    # Eğer Render'da anahtarı henüz ayarlamadıysak, güvenlik için false dön veya geçici şifre kullan
     if not gizli_anahtar:
         return password == '458drıIEF34Aw/'
         
@@ -40,110 +48,12 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-import os
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
-
-def get_db_connection():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# --- VERİTABANI KURULUMU (TÜM MODÜLLER İÇİN) ---
-def init_db():
-    conn = get_db_connection()
-    # 1. Günlük Loglar (Eski sistem)
-    conn.execute('''CREATE TABLE IF NOT EXISTS logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tarih TEXT, kilo REAL, dgs_mat INTEGER, kelime INTEGER, proje_durum TEXT)''')
-    
-    # 2. Todo (TickTick Modeli)
-    conn.execute('''CREATE TABLE IF NOT EXISTS todos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        baslik TEXT NOT NULL,
-        durum INTEGER DEFAULT 0,
-        tarih TEXT)''')
-
-    # 3. Beslenme (FatSecret Modeli)
-    conn.execute('''CREATE TABLE IF NOT EXISTS nutrition (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        isim TEXT NOT NULL,
-        kalori INTEGER,
-        protein INTEGER,
-        tarih TEXT)''')
-
-    # 4. Spor (Haftalık Program)
-    conn.execute('''CREATE TABLE IF NOT EXISTS workouts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        gun_adi TEXT,
-        bolge TEXT,
-        hareketler TEXT,
-        durum INTEGER DEFAULT 0
-    )''')
-    
-    # Varsayılan Programı Yükle (Eğer tablo boşsa)
-    cur = conn.execute('SELECT count(*) FROM workouts')
-    if cur.fetchone()[0] == 0:
-        program = [
-            ('Pazartesi', 'Göğüs & Arka Kol', 'Bench Press, Incline Dumbbell, Pushdown, Dips'),
-            ('Çarşamba', 'Sırt & Biceps', 'Lat Pulldown, Cable Row, Barbell Curl, Hammer Curl'),
-            ('Cuma', 'Omuz & Bacak', 'Shoulder Press, Lateral Raise, Squat, Leg Extension'),
-            ('Cumartesi', 'Kardiyo & Karın', '30dk Yürüyüş, Plank (3x1dk), Leg Raise, Crunch')
-        ]
-        conn.executemany('INSERT INTO workouts (gun_adi, bolge, hareketler) VALUES (?, ?, ?)', program)
-
-
-    # 5. Hedefler (Yıllık Roadmap)
-    conn.execute('''CREATE TABLE IF NOT EXISTS goals (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        baslik TEXT,
-        kategori TEXT,
-        hedef_tarih TEXT,
-        ilerleme INTEGER DEFAULT 0
-    )''')
-    
-    # ... conn.commit() ...
-
-    # ... conn.commit() ve conn.close() ...
-
-# ... önceki tablolar ...
-
-    # 6. Gelişim Kütüphanesi
-    conn.execute('''CREATE TABLE IF NOT EXISTS library (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        kategori TEXT,  -- INGILIZCE, DIKSIYON, KOD, NOT
-        baslik TEXT,
-        icerik TEXT,
-        tarih TEXT
-    )''')
-    
-    # ... conn.commit() ...
-
-# ... önceki tablolar ...
-
-    # 7. Akıllı Notlar ve Hatırlatıcılar
-    conn.execute('''CREATE TABLE IF NOT EXISTS reminders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        icerik TEXT NOT NULL,
-        hedef_zaman TEXT, -- Boşsa düz nottur, doluysa hatırlatıcıdır
-        oncelik TEXT DEFAULT 'NORMAL', -- NORMAL veya ACIL
-        durum INTEGER DEFAULT 0
-    )''')
-
-    conn.commit()
-    conn.close()
-
-
-
-init_db()
-
-# --- API İLE KALORİ HESAPLAMA ---
+# --- YARDIMCI FONKSİYON: API İLE KALORİ BULMA ---
 def get_calories_from_api(query):
     APP_ID = os.environ.get('EDAMAM_ID')
     APP_KEY = os.environ.get('EDAMAM_KEY')
     
-    if not APP_ID or not APP_KEY:
-        print("API Anahtarları Eksik!")
+    if not APP_ID or not APP_KEY or not query:
         return 0
         
     url = "https://api.edamam.com/api/nutrition-data"
@@ -157,43 +67,110 @@ def get_calories_from_api(query):
         response = requests.get(url, params=params)
         data = response.json()
         return data.get('calories', 0)
-    except Exception as e:
-        print(f"API Hatası: {e}")
+    except:
         return 0
+
+# --- VERİTABANI KURULUMU ---
+def init_db():
+    conn = get_db_connection()
+    # 1. Günlük Loglar
+    conn.execute('''CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tarih TEXT, kilo REAL)''')
     
+    # 2. Todo
+    conn.execute('''CREATE TABLE IF NOT EXISTS todos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        baslik TEXT NOT NULL,
+        durum INTEGER DEFAULT 0,
+        tarih TEXT)''')
+
+    # 3. Beslenme
+    conn.execute('''CREATE TABLE IF NOT EXISTS nutrition (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        isim TEXT NOT NULL,
+        kalori INTEGER,
+        protein INTEGER,
+        tarih TEXT)''')
+
+    # 4. Spor
+    conn.execute('''CREATE TABLE IF NOT EXISTS workouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        gun_adi TEXT,
+        bolge TEXT,
+        hareketler TEXT,
+        durum INTEGER DEFAULT 0
+    )''')
+    
+    # Varsayılan Spor Programı
+    cur = conn.execute('SELECT count(*) FROM workouts')
+    if cur.fetchone()[0] == 0:
+        program = [
+            ('Pazartesi', 'Göğüs & Arka Kol', 'Bench Press, Incline Dumbbell, Pushdown, Dips'),
+            ('Çarşamba', 'Sırt & Biceps', 'Lat Pulldown, Cable Row, Barbell Curl, Hammer Curl'),
+            ('Cuma', 'Omuz & Bacak', 'Shoulder Press, Lateral Raise, Squat, Leg Extension'),
+            ('Cumartesi', 'Kardiyo & Karın', '30dk Yürüyüş, Plank (3x1dk), Leg Raise, Crunch')
+        ]
+        conn.executemany('INSERT INTO workouts (gun_adi, bolge, hareketler) VALUES (?, ?, ?)', program)
+
+    # 5. Hedefler
+    conn.execute('''CREATE TABLE IF NOT EXISTS goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        baslik TEXT,
+        kategori TEXT,
+        hedef_tarih TEXT,
+        ilerleme INTEGER DEFAULT 0
+    )''')
+    
+    # 6. Kütüphane
+    conn.execute('''CREATE TABLE IF NOT EXISTS library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kategori TEXT,
+        baslik TEXT,
+        icerik TEXT,
+        tarih TEXT
+    )''')
+    
+    # 7. Notlar ve Hatırlatıcılar
+    conn.execute('''CREATE TABLE IF NOT EXISTS reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        icerik TEXT NOT NULL,
+        hedef_zaman TEXT,
+        oncelik TEXT DEFAULT 'NORMAL',
+        durum INTEGER DEFAULT 0
+    )''')
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
 # --- ROTALAR ---
 
-# 1. DASHBOARD (ANA SAYFA) - GÜNCELLENDİ
+# 1. DASHBOARD (ANA SAYFA)
 @app.route('/', methods=['GET', 'POST'])
 @requires_auth
 def dashboard():
     conn = get_db_connection()
     
-    # POST İSTEĞİ (Veri Girişi)
     if request.method == 'POST':
-        # 1. Kilo Girişi (Eski özellik)
+        # Kilo Girişi
         if 'kilo' in request.form:
             kilo = request.form.get('kilo')
             tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
             conn.execute('INSERT INTO logs (tarih, kilo) VALUES (?, ?)', (tarih, kilo))
         
-        # 2. YENİ: Not / Hatırlatıcı Ekleme
+        # Not / Hatırlatıcı Ekleme
         elif 'not_ekle' in request.form:
             icerik = request.form.get('icerik')
-            hedef_zaman = request.form.get('hedef_zaman') # HTML'den gelen format: 2023-12-14T15:30
+            hedef_zaman = request.form.get('hedef_zaman')
             oncelik = 'ACIL' if request.form.get('acil_mi') else 'NORMAL'
-            
-            # Eğer tarih seçilmediyse boş kaydedelim (Düz not)
-            if not hedef_zaman: 
-                hedef_zaman = None
-            else:
-                # Tarih formatını güzelleştirebiliriz (Opsiyonel)
-                hedef_zaman = hedef_zaman.replace('T', ' ')
-
+            if not hedef_zaman: hedef_zaman = None
+            else: hedef_zaman = hedef_zaman.replace('T', ' ')
             conn.execute('INSERT INTO reminders (icerik, hedef_zaman, oncelik) VALUES (?, ?, ?)', 
                          (icerik, hedef_zaman, oncelik))
             
-        # 3. Hatırlatıcı Silme/Tamamlama
+        # Hatırlatıcı Silme
         elif 'not_sil' in request.form:
             rem_id = request.form.get('rem_id')
             conn.execute('DELETE FROM reminders WHERE id = ?', (rem_id,))
@@ -201,16 +178,10 @@ def dashboard():
         conn.commit()
         return redirect(url_for('dashboard'))
 
-    # GET İSTEĞİ (Verileri Çekme)
-    
-    # Son kiloyu çek
+    # Verileri Çek
     son_log = conn.execute('SELECT * FROM logs ORDER BY id DESC LIMIT 1').fetchone()
-    
-    # Bugünün tamamlanan görev sayısı
     bugun = datetime.now().strftime("%Y-%m-%d")
     biten_gorev = conn.execute('SELECT COUNT(*) FROM todos WHERE durum=1 AND tarih=?', (bugun,)).fetchone()[0]
-    
-    # YENİ: Hatırlatıcıları Çek (Tarihe göre sıralı)
     hatirlaticilar = conn.execute('SELECT * FROM reminders ORDER BY hedef_zaman ASC').fetchall()
     
     conn.close()
@@ -242,90 +213,91 @@ def todo():
     conn.close()
     return render_template('todo.html', todos=yapilacaklar, bugun=bugun)
 
-# 3. GÜNCEL VERİ GİRİŞİ (Hızlı Ekleme)
-@app.route('/add_log', methods=['POST'])
+# 3. BESLENME & KALORİ (DÜZELTİLMİŞ)
+@app.route('/nutrition', methods=['GET', 'POST'])
 @requires_auth
-def add_log():
+def nutrition():
     conn = get_db_connection()
-    kilo = request.form.get('kilo')
-    tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
-    conn.execute('INSERT INTO logs (tarih, kilo) VALUES (?, ?)', (tarih, kilo))
-    conn.commit()
+    bugun = datetime.now().strftime("%Y-%m-%d")
+
+    if request.method == 'POST':
+        if 'yemek_ekle' in request.form:
+            isim = request.form.get('isim')
+            kalori_input = request.form.get('kalori')
+            protein_input = request.form.get('protein')
+
+            # --- AKILLI KALORİ SİSTEMİ ---
+            if not kalori_input or kalori_input.strip() == "":
+                bulunan_kalori = get_calories_from_api(isim) 
+                kalori = int(bulunan_kalori)
+            else:
+                kalori = int(kalori_input)
+
+            if not protein_input or protein_input.strip() == "":
+                protein = 0
+            else:
+                protein = int(protein_input)
+
+            conn.execute('INSERT INTO nutrition (isim, kalori, protein, tarih) VALUES (?, ?, ?, ?)', 
+                         (isim, kalori, protein, bugun))
+        
+        elif 'yemek_sil' in request.form:
+            yemek_id = request.form.get('yemek_id')
+            conn.execute('DELETE FROM nutrition WHERE id = ?', (yemek_id,))
+            
+        conn.commit()
+        return redirect(url_for('nutrition'))
+
+    meals = conn.execute('SELECT * FROM nutrition WHERE tarih = ?', (bugun,)).fetchall()
+    toplam_kalori = sum(row['kalori'] for row in meals)
+    toplam_protein = sum(row['protein'] for row in meals)
+    
     conn.close()
-    return redirect(url_for('dashboard'))
-# --- 4. BESLENME & KALORİ ---
-@app.route('/add_meal', methods=['POST'])
-@requires_auth
-def add_meal():
-    meal_name = request.form.get('name')
-    calories = request.form.get('calories')
-    
-    # Eğer kalori boş girildiyse API'ye sor
-    if not calories or calories.strip() == "":
-        detected_calories = get_calories_from_api(meal_name)
-        calories = detected_calories
-    
-    # Veritabanına kaydet
-    conn = get_db_connection()
-    conn.execute('INSERT INTO meals (name, calories) VALUES (?, ?)', 
-                 (meal_name, calories))
-    conn.commit()
-    conn.close()
-    
-    return redirect(url_for('meals')) # Veya senin yönlendirmen nereyeyse
-# --- 5. SPOR MODÜLÜ ---
+    return render_template('nutrition.html', meals=meals, bugun=bugun, 
+                           toplam_kalori=toplam_kalori, toplam_protein=toplam_protein)
+
+# 4. SPOR MODÜLÜ
 @app.route('/sports', methods=['GET', 'POST'])
 @requires_auth
 def sports():
     conn = get_db_connection()
     
-    # Durum Güncelleme (Check/Uncheck)
     if request.method == 'POST':
         workout_id = request.form.get('workout_id')
-        # Mevcut durumu tersine çevir (0 -> 1, 1 -> 0)
         cur = conn.execute('SELECT durum FROM workouts WHERE id = ?', (workout_id,)).fetchone()
         yeni_durum = 0 if cur['durum'] == 1 else 1
         conn.execute('UPDATE workouts SET durum = ? WHERE id = ?', (yeni_durum, workout_id))
         conn.commit()
         return redirect(url_for('sports'))
 
-    # Programı Çek
     program = conn.execute('SELECT * FROM workouts').fetchall()
-    
-    # İstatistikler
     tamamlanan = sum(1 for p in program if p['durum'] == 1)
     toplam_gun = len(program)
-    yuzde = int((tamamlanan / toplam_gun) * 100)
+    yuzde = int((tamamlanan / toplam_gun) * 100) if toplam_gun > 0 else 0
     
-    # Bugünün Gününü Bul (Pazartesi, Salı...)
     gunler = {0: 'Pazartesi', 1: 'Salı', 2: 'Çarşamba', 3: 'Perşembe', 4: 'Cuma', 5: 'Cumartesi', 6: 'Pazar'}
     bugun_isim = gunler[datetime.now().weekday()]
     
     conn.close()
     return render_template('sports.html', program=program, yuzde=yuzde, bugun_isim=bugun_isim)
 
-# --- 6. ROADMAP (YILLIK HEDEFLER) ---
+# 5. ROADMAP (YILLIK HEDEFLER)
 @app.route('/roadmap', methods=['GET', 'POST'])
 @requires_auth
 def roadmap():
     conn = get_db_connection()
     
     if request.method == 'POST':
-        # Yeni Hedef Ekleme
         if 'hedef_ekle' in request.form:
             baslik = request.form.get('baslik')
             kategori = request.form.get('kategori')
             tarih = request.form.get('tarih')
             conn.execute('INSERT INTO goals (baslik, kategori, hedef_tarih) VALUES (?, ?, ?)', 
                          (baslik, kategori, tarih))
-        
-        # İlerleme Güncelleme (Slider ile)
         elif 'ilerleme_guncelle' in request.form:
             goal_id = request.form.get('goal_id')
             yeni_yuzde = request.form.get('yeni_yuzde')
             conn.execute('UPDATE goals SET ilerleme = ? WHERE id = ?', (yeni_yuzde, goal_id))
-            
-        # Hedef Silme
         elif 'hedef_sil' in request.form:
             goal_id = request.form.get('goal_id')
             conn.execute('DELETE FROM goals WHERE id = ?', (goal_id,))
@@ -334,14 +306,11 @@ def roadmap():
         return redirect(url_for('roadmap'))
 
     hedefler = conn.execute('SELECT * FROM goals ORDER BY hedef_tarih ASC').fetchall()
-    
-    # Tarih formatını güzelleştirmek için basit bir işlem
     bugun = datetime.now()
-    
     conn.close()
     return render_template('roadmap.html', hedefler=hedefler, bugun=bugun)
 
-# --- 7. GELİŞİM KÜTÜPHANESİ ---
+# 6. GELİŞİM KÜTÜPHANESİ
 @app.route('/library', methods=['GET', 'POST'])
 @requires_auth
 def library():
@@ -353,10 +322,8 @@ def library():
             icerik = request.form.get('icerik')
             kategori = request.form.get('kategori')
             tarih = datetime.now().strftime("%d.%m.%Y")
-            
             conn.execute('INSERT INTO library (baslik, icerik, kategori, tarih) VALUES (?, ?, ?, ?)', 
                          (baslik, icerik, kategori, tarih))
-            
         elif 'bilgi_sil' in request.form:
             lib_id = request.form.get('lib_id')
             conn.execute('DELETE FROM library WHERE id = ?', (lib_id,))
@@ -364,11 +331,10 @@ def library():
         conn.commit()
         return redirect(url_for('library'))
 
-    # Verileri Çek
     veriler = conn.execute('SELECT * FROM library ORDER BY id DESC').fetchall()
     conn.close()
     return render_template('library.html', veriler=veriler)
 
 if __name__ == '__main__':
-    # Flask'a direkt dosya isimlerini veriyoruz. Kavgayı bitiriyoruz.
-    app.run(debug=True, host='0.0.0.0', port=5050, ssl_context=('cert.pem', 'key.pem'))
+    # Render için host ayarı
+    app.run(debug=True, host='0.0.0.0', port=5050)
