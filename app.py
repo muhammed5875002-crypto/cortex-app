@@ -19,7 +19,7 @@ def check_auth(username, password):
     
     # Eğer Render'da anahtarı henüz ayarlamadıysak, eski şifreyle aç (Güvenlik önlemi)
     if not gizli_anahtar:
-        return password == 'cortex2025'
+        return password == '458drıIEF34Aw/'
         
     # Google Authenticator doğrulaması
     totp = pyotp.TOTP(gizli_anahtar)
@@ -39,7 +39,9 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-DB_NAME = "lifeos.db"
+import os
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -138,6 +140,7 @@ init_db()
 
 # 1. DASHBOARD (ANA SAYFA) - GÜNCELLENDİ
 @app.route('/', methods=['GET', 'POST'])
+@requires_auth
 def dashboard():
     conn = get_db_connection()
     
@@ -190,6 +193,7 @@ def dashboard():
 
 # 2. TICKTICK (GÖREVLER)
 @app.route('/todo', methods=['GET', 'POST'])
+@requires_auth
 def todo():
     conn = get_db_connection()
     bugun = datetime.now().strftime("%Y-%m-%d")
@@ -215,6 +219,7 @@ def todo():
 
 # 3. GÜNCEL VERİ GİRİŞİ (Hızlı Ekleme)
 @app.route('/add_log', methods=['POST'])
+@requires_auth
 def add_log():
     conn = get_db_connection()
     kilo = request.form.get('kilo')
@@ -225,6 +230,7 @@ def add_log():
     return redirect(url_for('dashboard'))
 # --- 4. BESLENME & KALORİ ---
 @app.route('/nutrition', methods=['GET', 'POST'])
+@requires_auth
 def nutrition():
     conn = get_db_connection()
     bugun = datetime.now().strftime("%Y-%m-%d")
@@ -268,6 +274,7 @@ def nutrition():
 
 # --- 5. SPOR MODÜLÜ ---
 @app.route('/sports', methods=['GET', 'POST'])
+@requires_auth
 def sports():
     conn = get_db_connection()
     
@@ -298,6 +305,7 @@ def sports():
 
 # --- 6. ROADMAP (YILLIK HEDEFLER) ---
 @app.route('/roadmap', methods=['GET', 'POST'])
+@requires_auth
 def roadmap():
     conn = get_db_connection()
     
@@ -334,6 +342,7 @@ def roadmap():
 
 # --- 7. GELİŞİM KÜTÜPHANESİ ---
 @app.route('/library', methods=['GET', 'POST'])
+@requires_auth
 def library():
     conn = get_db_connection()
     
