@@ -1,0 +1,75 @@
+@requires_auth
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="text-2xl font-bold text-white">Beslenme</h2>
+    <p class="text-gray-500 text-sm">Yakıt Durumu</p>
+</div>
+
+<div class="glass p-5 rounded-2xl mb-6 relative overflow-hidden">
+    <div class="absolute -right-6 -top-6 w-24 h-24 bg-orange-600 rounded-full blur-3xl opacity-20"></div>
+    
+    <div class="mb-4">
+        <div class="flex justify-between text-xs font-bold uppercase mb-1">
+            <span class="text-orange-400">Kalori</span>
+            <span class="text-white">{{ toplam_kalori }} / {{ hedef_kalori }}</span>
+        </div>
+        <div class="w-full bg-gray-700 rounded-full h-3">
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full transition-all duration-1000" style="width: {{ kalori_yuzde }}%"></div>
+        </div>
+    </div>
+
+    <div>
+        <div class="flex justify-between text-xs font-bold uppercase mb-1">
+            <span class="text-blue-400">Protein</span>
+            <span class="text-white">{{ toplam_protein }} / {{ hedef_protein }}g</span>
+        </div>
+        </div>
+</div>
+
+<form method="POST" class="glass p-4 rounded-2xl mb-6">
+    <div class="grid grid-cols-4 gap-2">
+        <div class="col-span-4">
+            <input type="text" name="isim" placeholder="Ne yedin? (Örn: 3 Yumurta)" required
+                class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-orange-500 text-sm">
+        </div>
+        <div class="col-span-2">
+            <input type="number" name="kalori" placeholder="Kcal" required
+                class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-orange-500 text-sm">
+        </div>
+        <div class="col-span-2">
+            <input type="number" name="protein" placeholder="Prot(g)" required
+                class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-orange-500 text-sm">
+        </div>
+        <div class="col-span-4 mt-1">
+            <button type="submit" name="yemek_ekle" class="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl transition-all">
+                ÖĞÜN EKLE 🍗
+            </button>
+        </div>
+    </div>
+</form>
+
+<div class="space-y-3 pb-20">
+    {% for yemek in yemekler %}
+    <div class="bg-gray-800 p-4 rounded-xl flex justify-between items-center border-l-2 border-orange-500">
+        <div>
+            <p class="font-bold text-white">{{ yemek['isim'] }}</p>
+            <p class="text-xs text-gray-400">{{ yemek['kalori'] }} kcal • <span class="text-blue-400">{{ yemek['protein'] }}g Prot</span></p>
+        </div>
+        
+        <form method="POST">
+            <input type="hidden" name="yemek_id" value="{{ yemek['id'] }}">
+            <button type="submit" name="yemek_sil" class="text-gray-600 hover:text-red-500 p-2">
+                <i class="fas fa-times"></i>
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="text-center py-6 opacity-50">
+        <i class="fas fa-carrot text-3xl mb-2 text-gray-600"></i>
+        <p class="text-sm">Bugün henüz bir şey yemedin.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+@requires_auth
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-white">Yıllık Plan</h2>
+    <p class="text-gray-500 text-sm">Geleceği Tasarla 🔮</p>
+</div>
+
+<div class="glass p-5 rounded-2xl mb-8 border border-cyan-500/30">
+    <h3 class="text-cyan-400 text-xs font-bold uppercase mb-3 tracking-widest">Yeni Hedef Tanımla</h3>
+    <form method="POST" class="space-y-3">
+        <input type="text" name="baslik" placeholder="Hedefin ne? (Örn: DGS Bilgisayar Müh.)" required
+            class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-cyan-500 text-sm">
+        
+        <div class="grid grid-cols-2 gap-3">
+            <select name="kategori" class="bg-gray-800 text-gray-300 p-3 rounded-xl outline-none text-sm">
+                <option value="Kariyer">Kariyer 🎓</option>
+                <option value="Sağlık">Sağlık 💪</option>
+                <option value="Finans">Finans 💰</option>
+                <option value="Hobi">Gelişim 🧠</option>
+            </select>
+            <input type="date" name="tarih" required
+                class="bg-gray-800 text-gray-300 p-3 rounded-xl outline-none text-sm">
+        </div>
+        
+        <button type="submit" name="hedef_ekle" class="w-full bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.5)]">
+            HEDEFİ KİLİTLE 🎯
+        </button>
+    </form>
+</div>
+
+<div class="space-y-6 pb-20">
+    {% for hedef in hedefler %}
+    <div class="glass p-5 rounded-2xl relative overflow-hidden group">
+        <div class="absolute -right-10 -top-10 w-32 h-32 bg-cyan-600 rounded-full blur-3xl opacity-10 group-hover:opacity-20 transition-opacity"></div>
+        
+        <div class="flex justify-between items-start mb-2 relative z-10">
+            <div>
+                <span class="text-xs font-bold px-2 py-1 rounded bg-gray-700 text-gray-300 mb-2 inline-block">{{ hedef['kategori'] }}</span>
+                <h3 class="text-lg font-bold text-white leading-tight">{{ hedef['baslik'] }}</h3>
+                <p class="text-xs text-gray-500 mt-1">Hedef: {{ hedef['hedef_tarih'] }}</p>
+            </div>
+            
+            <form method="POST">
+                <input type="hidden" name="goal_id" value="{{ hedef['id'] }}">
+                <button type="submit" name="hedef_sil" class="text-gray-600 hover:text-red-500 text-sm p-1">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
+        </div>
+
+        <form method="POST" class="mt-4 relative z-10">
+            <input type="hidden" name="goal_id" value="{{ hedef['id'] }}">
+            <input type="hidden" name="ilerleme_guncelle" value="1">
+            
+            <div class="flex justify-between text-xs text-cyan-400 font-bold mb-1">
+                <span>İlerleme</span>
+                <span>%{{ hedef['ilerleme'] }}</span>
+            </div>
+            
+            <div class="relative w-full h-6 flex items-center">
+                <input type="range" name="yeni_yuzde" min="0" max="100" value="{{ hedef['ilerleme'] }}" 
+                    class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    onchange="this.form.submit()"> </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="text-center py-10 opacity-50">
+        <i class="fas fa-rocket text-4xl mb-3 text-gray-600"></i>
+        <p class="text-sm">Henüz büyük bir hedefin yok.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

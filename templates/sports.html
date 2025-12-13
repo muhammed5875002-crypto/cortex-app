@@ -1,0 +1,74 @@
+@requires_auth
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-end">
+    <div>
+        <h2 class="text-2xl font-bold text-white">Antrenman</h2>
+        <p class="text-gray-500 text-sm">Vücut İnşası 🏗️</p>
+    </div>
+    <div class="text-right">
+        <span class="text-3xl font-bold text-red-500">%{{ yuzde }}</span>
+        <p class="text-xs text-gray-400">Haftalık</p>
+    </div>
+</div>
+
+<div class="w-full bg-gray-800 rounded-full h-2 mb-8">
+    <div class="bg-red-600 h-2 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(220,38,38,0.7)]" style="width: {{ yuzde }}%"></div>
+</div>
+
+{% set bugun_antrenmani = namespace(found=False) %}
+{% for p in program %}
+    {% if p['gun_adi'] == bugun_isim %}
+        {% set bugun_antrenmani.found = True %}
+        <div class="glass p-6 rounded-2xl mb-8 border border-red-500/30 relative overflow-hidden group">
+            <div class="absolute -right-10 -top-10 w-32 h-32 bg-red-600 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
+            
+            <div class="flex justify-between items-start mb-4 relative z-10">
+                <div>
+                    <span class="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">Bugün</span>
+                    <h3 class="text-2xl font-bold text-white mt-2">{{ p['bolge'] }}</h3>
+                </div>
+                <form method="POST">
+                    <input type="hidden" name="workout_id" value="{{ p['id'] }}">
+                    <button type="submit" class="w-12 h-12 rounded-full flex items-center justify-center transition-all {{ 'bg-red-600 text-white shadow-lg shadow-red-600/50' if p['durum'] == 1 else 'bg-gray-700 text-gray-400 hover:bg-gray-600' }}">
+                        <i class="fas fa-dumbbell text-xl"></i>
+                    </button>
+                </form>
+            </div>
+            
+            <div class="space-y-2 relative z-10">
+                <p class="text-gray-300 text-sm font-medium">Hareketler:</p>
+                <p class="text-gray-400 text-sm leading-relaxed">{{ p['hareketler'] }}</p>
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+
+{% if not bugun_antrenmani.found %}
+<div class="glass p-6 rounded-2xl mb-8 text-center border border-gray-700">
+    <i class="fas fa-bed text-3xl text-gray-500 mb-3"></i>
+    <p class="text-gray-300 font-bold">Bugün Dinlenme Günü</p>
+    <p class="text-xs text-gray-500">Kaslar dinlenirken büyür. Beslenmene dikkat et!</p>
+</div>
+{% endif %}
+
+<h3 class="text-sm font-bold text-gray-500 mb-4 uppercase tracking-widest">Haftalık Program</h3>
+<div class="space-y-4 pb-20">
+    {% for p in program %}
+    <div class="bg-gray-800/50 p-4 rounded-xl flex items-center justify-between border-l-4 {{ 'border-red-500' if p['durum'] == 1 else 'border-gray-600' }}">
+        <div>
+            <p class="text-xs text-gray-400 mb-1">{{ p['gun_adi'] }}</p>
+            <p class="font-bold {{ 'text-gray-500 line-through' if p['durum'] == 1 else 'text-white' }}">{{ p['bolge'] }}</p>
+        </div>
+        
+        <form method="POST">
+            <input type="hidden" name="workout_id" value="{{ p['id'] }}">
+            <button class="text-sm {{ 'text-red-400' if p['durum'] == 1 else 'text-gray-600 hover:text-white' }}">
+                <i class="fas {{ 'fa-check-circle text-xl' if p['durum'] == 1 else 'fa-circle' }}"></i>
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

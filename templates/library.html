@@ -1,0 +1,77 @@
+@requires_auth
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-white">Gelişim</h2>
+    <p class="text-gray-500 text-sm">Kişisel Bilgi Bankası 🧠</p>
+</div>
+
+<div class="glass p-5 rounded-2xl mb-8 border border-purple-500/30 relative overflow-hidden">
+    <div class="absolute -right-6 -top-6 w-24 h-24 bg-purple-600 rounded-full blur-3xl opacity-20"></div>
+    
+    <form method="POST" class="space-y-3 relative z-10">
+        <div class="flex gap-2 overflow-x-auto pb-2">
+            <label class="cursor-pointer">
+                <input type="radio" name="kategori" value="ING" class="peer sr-only" checked>
+                <div class="px-4 py-2 bg-gray-800 rounded-xl text-xs font-bold text-gray-400 peer-checked:bg-purple-600 peer-checked:text-white transition-all">
+                    🇬🇧 İNG
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kategori" value="DIK" class="peer sr-only">
+                <div class="px-4 py-2 bg-gray-800 rounded-xl text-xs font-bold text-gray-400 peer-checked:bg-yellow-600 peer-checked:text-white transition-all">
+                    🎤 DİKSİYON
+                </div>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio" name="kategori" value="KOD" class="peer sr-only">
+                <div class="px-4 py-2 bg-gray-800 rounded-xl text-xs font-bold text-gray-400 peer-checked:bg-blue-600 peer-checked:text-white transition-all">
+                    💻 KOD
+                </div>
+            </label>
+        </div>
+
+        <input type="text" name="baslik" placeholder="Başlık / Kelime" required
+            class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-purple-500 text-sm font-bold">
+        
+        <textarea name="icerik" placeholder="Anlamı, Notun veya Kod Parçası..." rows="2" required
+            class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-purple-500 text-sm"></textarea>
+        
+        <button type="submit" name="bilgi_ekle" class="w-full bg-purple-700 hover:bg-purple-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg">
+            KAYDET
+        </button>
+    </form>
+</div>
+
+<div class="grid grid-cols-1 gap-4 pb-20">
+    {% for veri in veriler %}
+    <div class="glass p-5 rounded-2xl border-l-4 
+        {% if veri['kategori'] == 'ING' %} border-purple-500 {% elif veri['kategori'] == 'DIK' %} border-yellow-500 {% else %} border-blue-500 {% endif %} relative group">
+        
+        <div class="flex justify-between items-start mb-2">
+            <span class="text-[10px] font-bold px-2 py-1 rounded bg-gray-800 text-gray-400">
+                {% if veri['kategori'] == 'ING' %} ENGLISH {% elif veri['kategori'] == 'DIK' %} DICTION {% else %} CODE {% endif %}
+            </span>
+            <form method="POST">
+                <input type="hidden" name="lib_id" value="{{ veri['id'] }}">
+                <button type="submit" name="bilgi_sil" class="text-gray-600 hover:text-red-500 transition-colors">
+                    <i class="fas fa-trash text-xs"></i>
+                </button>
+            </form>
+        </div>
+
+        <h3 class="text-lg font-bold text-white mb-1">{{ veri['baslik'] }}</h3>
+        <div class="bg-gray-800/50 p-3 rounded-xl text-sm text-gray-300 font-mono leading-relaxed">
+            {{ veri['icerik'] }}
+        </div>
+        <p class="text-right text-[10px] text-gray-600 mt-2">{{ veri['tarih'] }}</p>
+    </div>
+    {% else %}
+    <div class="text-center py-10 opacity-50">
+        <i class="fas fa-book-open text-4xl mb-3 text-gray-600"></i>
+        <p class="text-sm">Kütüphane henüz boş.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
