@@ -11,7 +11,7 @@ app = Flask(__name__)
 # --- TOTP (GOOGLE AUTHENTICATOR) GÜVENLİK SİSTEMİ ---
 def check_auth(username, password):
     # 1. Kullanıcı Adı Kontrolü
-    if username != 'admin':
+    if username != 'Muhammed[*]}':
         return False
     
     # 2. Şifre Kontrolü (Render'dan gizli anahtarı çek)
