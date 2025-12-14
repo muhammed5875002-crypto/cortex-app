@@ -1,68 +1,56 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h5 class="text-muted mb-3">BAĞLANTILAR</h5>
-    </div>
-    <div class="col-4">
-        <a href="https://ticktick.com/webapp" target="_blank" class="launch-btn launch-ticktick">
-            <i class="fas fa-check-double me-2"></i> TickTick
+
+<div class="mb-4">
+    <h2 class="fw-bold">Hoş geldin, <span class="text-neon">Şef.</span></h2>
+    <p class="text-secondary small">Bugün disiplinli miyiz?</p>
+</div>
+
+<div class="row g-3">
+    <div class="col-6">
+        <a href="https://www.fatsecret.com.tr/Default.aspx" target="_blank" class="d-block text-decoration-none">
+            <div class="btn-pro d-flex flex-column align-items-center justify-content-center h-100">
+                <i class="fas fa-utensils fa-2x mb-2" style="color: #30D158;"></i>
+                <span>FatSecret</span>
+            </div>
         </a>
     </div>
-    <div class="col-4">
-        <a href="https://www.fatsecret.com.tr/Default.aspx" target="_blank" class="launch-btn launch-fatsecret">
-            <i class="fas fa-carrot me-2"></i> FatSecret
+
+    <div class="col-6">
+        <a href="https://ticktick.com/webapp" target="_blank" class="d-block text-decoration-none">
+            <div class="btn-pro d-flex flex-column align-items-center justify-content-center h-100">
+                <i class="fas fa-check-circle fa-2x mb-2" style="color: #0A84FF;"></i>
+                <span>TickTick</span>
+            </div>
         </a>
     </div>
-    <div class="col-4">
-        <a href="https://calendar.google.com" target="_blank" class="launch-btn launch-cal">
-            <i class="fas fa-calendar-alt me-2"></i> Takvim
+
+    <div class="col-6">
+        <a href="calshow://" class="d-block text-decoration-none">
+            <div class="btn-pro d-flex flex-column align-items-center justify-content-center h-100">
+                <i class="fas fa-calendar-alt fa-2x mb-2" style="color: #FF453A;"></i>
+                <span>Takvim</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-6">
+        <a href="/scanner" class="d-block text-decoration-none">
+            <div class="btn-pro d-flex flex-column align-items-center justify-content-center h-100 border border-primary">
+                <i class="fas fa-barcode fa-2x mb-2 text-white"></i>
+                <span class="text-white">Barkod Oku</span>
+            </div>
         </a>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">📉 GÜN SONU RAPORU</div>
-            <div class="card-body">
-                <form method="POST">
-                    <input type="hidden" name="gun_ozeti" value="1">
-                    
-                    <div class="mb-3">
-                        <label>Güncel Kilo (kg)</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-dark text-white border-secondary"><i class="fas fa-weight"></i></span>
-                            <input type="number" step="0.1" name="kilo" class="form-control" placeholder="{{ son_kilo }}">
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100">Raporu Kaydet</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">🎯 AKTİF HEDEFLER (ROADMAP)</div>
-            <div class="card-body">
-                {% if hedefler %}
-                    <ul class="list-group list-group-flush bg-transparent">
-                    {% for hedef in hedefler %}
-                        <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between">
-                            <span>{{ hedef.baslik }}</span>
-                            <span class="badge bg-secondary">{{ hedef.kategori }}</span>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-muted text-center">Henüz hedef girilmedi.</p>
-                {% endif %}
-                <a href="/roadmap" class="btn btn-sm btn-outline-light w-100 mt-3">Tüm Planı Gör</a>
-            </div>
-        </div>
-    </div>
+<div class="glass-card mt-4">
+    <h5 class="mb-3 text-secondary">📌 GÜNLÜK MOTTO</h5>
+    <form method="POST">
+        <textarea name="motto" class="form-control mb-3" placeholder="Bugünün hedefi ne?" rows="2" style="resize:none;">{{ motto }}</textarea>
+        <button type="submit" class="btn btn-primary w-100 fw-bold">Kaydet</button>
+    </form>
 </div>
+
 {% endblock %}

@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="glass-card text-center">
+    <h5 class="mb-3">🔎 Ürün Bulucu</h5>
+    
+    <div id="camera-area" style="width: 100%; height: 250px; background: #000; border-radius: 12px; overflow: hidden; display: none; position: relative;">
+        <div id="interactive" class="viewport"></div>
+        <div style="position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; background: red; box-shadow: 0 0 10px red;"></div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button id="btn-scan" class="btn btn-primary flex-grow-1"><i class="fas fa-camera me-2"></i>Tara</button>
+        <button id="btn-stop" class="btn btn-danger" style="display:none;"><i class="fas fa-stop"></i></button>
+    </div>
+
+    <div id="result-area" class="mt-4" style="display:none;">
+        <hr class="border-secondary">
+        <div class="text-start">
+            <small class="text-secondary">Ürün Adı</small>
+            <h4 id="res-name" class="fw-bold text-white mb-1">...</h4>
+            
+            <div class="d-flex justify-content-between mt-3">
+                <div class="bg-dark p-2 rounded text-center" style="width: 30%;">
+                    <small class="text-warning d-block">Kalori</small>
+                    <span id="res-cal" class="fw-bold fs-5">0</span>
+                </div>
+                <div class="bg-dark p-2 rounded text-center" style="width: 30%;">
+                    <small class="text-info d-block">Protein</small>
+                    <span id="res-pro" class="fw-bold fs-5">0</span>
+                </div>
+                <div class="bg-dark p-2 rounded text-center" style="width: 30%;">
+                    <small class="text-danger d-block">Yağ</small>
+                    <span id="res-fat" class="fw-bold fs-5">0</span>
+                </div>
+            </div>
+
+            <button onclick="copyData()" class="btn btn-outline-light w-100 mt-3 py-3">
+                <i class="fas fa-copy me-2"></i>Kopyala (FatSecret İçin)
+            </button>
+            <small id="copy-msg" class="text-success d-block mt-2" style="display:none;">Kopyalandı! Şimdi yapıştır.</small>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card mt-3">
+    <small class="text-secondary">Kamera okumazsa barkodu yaz:</small>
+    <div class="input-group mt-2">
+        <input type="number" id="manual-code" class="form-control" placeholder="869...">
+        <button class="btn btn-secondary" onclick="manualSearch()"><i class="fas fa-search"></i></button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script>
+    // --- KOPYALAMA FONKSİYONU ---
+    function copyData() {
+        const name = document.getElementById('res-name').innerText;
+        const cal = document.getElementById('res-cal').innerText;
+        // Panoya kopyalanacak metin: "Eti Probis 450 kcal"
+        const text = `${name} ${cal} kcal`;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            document.getElementById('copy-msg').style.display = 'block';
+            setTimeout(() => document.getElementById('copy-msg').style.display = 'none', 3000);
+        });
+    }
+
+    // --- API SORGUSU ---
+    function fetchProduct(code) {
+        fetch(`/get_barcode_data?code=${code}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.found) {
+                    document.getElementById('result-area').style.display = 'block';
+                    document.getElementById('res-name').innerText = data.name;
+                    document.getElementById('res-cal').innerText = data.calories;
+                    document.getElementById('res-pro').innerText = data.protein;
+                    document.getElementById('res-fat').innerText = data.fat;
+                } else {
+                    alert('Ürün bulunamadı! İnternette olmayabilir.');
+                }
+            });
+    }
+
+    // --- MANUEL ARAMA ---
+    function manualSearch() {
+        const code = document.getElementById('manual-code').value;
+        if(code.length > 5) fetchProduct(code);
+    }
+
+    // --- KAMERA (QUAGGA) ---
+    const btnScan = document.getElementById('btn-scan');
+    const btnStop = document.getElementById('btn-stop');
+    const cameraArea = document.getElementById('camera-area');
+
+    btnScan.onclick = () => {
+        cameraArea.style.display = 'block';
+        btnScan.style.display = 'none';
+        btnStop.style.display = 'block';
+        
+        Quagga.init({
+            inputStream : {
+                name : "Live", type : "LiveStream", target: document.querySelector('#interactive'),
+                constraints: { facingMode: "environment", width: 640, height: 480 }
+            },
+            decoder : { readers : ["ean_reader"] }, // Sadece Barkod
+            locate: true
+        }, function(err) {
+            if (err) { console.log(err); return; }
+            Quagga.start();
+        });
+    };
+
+    Quagga.onDetected(function(result) {
+        var code = result.codeResult.code;
+        if(code && code.length > 7) {
+            Quagga.stop();
+            cameraArea.style.display = 'none';
+            btnScan.style.display = 'block';
+            btnStop.style.display = 'none';
+            
+            // Titreşim
+            try { navigator.vibrate(200); } catch(e){}
+            
+            fetchProduct(code);
+        }
+    });
+
+    btnStop.onclick = () => {
+        Quagga.stop();
+        cameraArea.style.display = 'none';
+        btnScan.style.display = 'block';
+        btnStop.style.display = 'none';
+    };
+</script>
+{% endblock %}
