@@ -6,7 +6,7 @@
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
             <h3 style="margin: 0; font-size: 22px;">Komuta Merkezi</h3>
-            <p style="margin: 5px 0 0 0; color: var(--text-sec); font-size: 14px;">Odaklan ve Yönet.</p>
+            <p style="margin: 5px 0 0 0; color: var(--text-sec); font-size: 14px;">Her şeyi tek yerden yönet.</p>
         </div>
         <i class="fas fa-layer-group" style="font-size: 35px; color: var(--primary); opacity: 0.8;"></i>
     </div>
@@ -17,42 +17,115 @@
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
 
     <a href="ticktick://" style="text-decoration: none;">
-        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px; border: 1px solid rgba(10, 132, 255, 0.2);">
+        <div class="ios-card app-card" style="border-color: rgba(10, 132, 255, 0.2);">
             <i class="fas fa-check-double" style="font-size: 32px; color: #0A84FF; margin-bottom: 10px;"></i>
-            <span style="font-weight: 600; color: white;">TickTick</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Görevler</span>
+            <span class="app-title">TickTick</span>
+            <span class="app-desc">Görevler</span>
         </div>
     </a>
 
     <a href="fatsecret://" style="text-decoration: none;">
-        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px; border: 1px solid rgba(48, 209, 88, 0.2);">
+        <div class="ios-card app-card" style="border-color: rgba(48, 209, 88, 0.2);">
             <i class="fas fa-utensils" style="font-size: 32px; color: #30D158; margin-bottom: 10px;"></i>
-            <span style="font-weight: 600; color: white;">FatSecret</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Beslenme</span>
+            <span class="app-title">FatSecret</span>
+            <span class="app-desc">Beslenme</span>
         </div>
     </a>
 
     <a href="https://docs.google.com/spreadsheets" target="_blank" style="text-decoration: none;">
-        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
+        <div class="ios-card app-card">
             <i class="fas fa-file-excel" style="font-size: 32px; color: #34A853; margin-bottom: 10px;"></i>
-            <span style="font-weight: 600; color: white;">Sheets</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Tablolar</span>
+            <span class="app-title">Sheets</span>
+            <span class="app-desc">Tablolar</span>
         </div>
     </a>
 
     <a href="calshow://" style="text-decoration: none;">
-        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
+        <div class="ios-card app-card">
             <i class="fas fa-calendar-day" style="font-size: 32px; color: #FF453A; margin-bottom: 10px;"></i>
-            <span style="font-weight: 600; color: white;">Takvim</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Plan</span>
+            <span class="app-title">Takvim</span>
+            <span class="app-desc">Plan</span>
         </div>
     </a>
 
+    {% for s in shortcuts %}
+    <div style="position: relative;">
+        <a href="{{ s.url }}" target="_blank" style="text-decoration: none;">
+            <div class="ios-card app-card theme-{{ s.color_theme }}">
+                <i class="fas fa-{{ s.icon }}" style="font-size: 32px; margin-bottom: 10px;"></i>
+                <span class="app-title">{{ s.name }}</span>
+                <span class="app-desc">Kısayol</span>
+            </div>
+        </a>
+        
+        <form method="POST" style="position: absolute; top: 5px; right: 5px;">
+            <input type="hidden" name="del_shortcut" value="1">
+            <input type="hidden" name="s_id" value="{{ s.id }}">
+            <button type="submit" style="background: rgba(0,0,0,0.5); border: none; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+        </form>
+    </div>
+    {% endfor %}
+
+    <div onclick="openModal()" class="ios-card app-card" style="border: 2px dashed rgba(255,255,255,0.15); background: transparent; cursor: pointer;">
+        <i class="fas fa-plus" style="font-size: 32px; color: var(--text-sec); margin-bottom: 10px;"></i>
+        <span class="app-title" style="color: var(--text-sec);">Ekle</span>
+        <span class="app-desc">Yeni Kısayol</span>
+    </div>
+
 </div>
 
-<div class="ios-card" style="margin-top: 20px;">
-    <div style="font-size: 14px; color: var(--text-sec); margin-bottom: 5px;"><i class="fas fa-info-circle me-2"></i>Sistem Durumu</div>
-    <div style="font-size: 16px; font-weight: 500;">Tüm sistemler aktif. İyi çalışmalar Şef.</div>
+<div id="addModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="ios-card" style="width: 80%; max-width: 300px; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1);">
+        <h4 style="margin-top: 0; text-align: center;">Yeni Kısayol</h4>
+        
+        <form method="POST">
+            <input type="hidden" name="add_shortcut" value="1">
+            
+            <label style="font-size: 12px; color: var(--text-sec);">Görünen İsim</label>
+            <input type="text" name="name" placeholder="Örn: YouTube" required style="margin-bottom: 10px;">
+            
+            <label style="font-size: 12px; color: var(--text-sec);">Web Adresi (Link)</label>
+            <input type="text" name="url" placeholder="youtube.com" required style="margin-bottom: 20px;">
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeModal()" class="btn" style="background: #333; color: white;">İptal</button>
+                <button type="submit" class="btn btn-primary">Ekle</button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<style>
+    .app-card {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        height: 120px; transition: transform 0.2s;
+    }
+    .app-card:active { transform: scale(0.96); }
+    .app-title { font-weight: 600; color: white; margin-bottom: 2px; text-align: center; }
+    .app-desc { font-size: 12px; color: var(--text-sec); }
+
+    /* Otomatik Renk Temaları */
+    .theme-blue i { color: #0A84FF; } .theme-blue { border-color: rgba(10, 132, 255, 0.2); }
+    .theme-purple i { color: #BF5AF2; } .theme-purple { border-color: rgba(191, 90, 242, 0.2); }
+    .theme-orange i { color: #FF9F0A; } .theme-orange { border-color: rgba(255, 159, 10, 0.2); }
+    .theme-pink i { color: #FF375F; } .theme-pink { border-color: rgba(255, 55, 95, 0.2); }
+    .theme-green i { color: #30D158; } .theme-green { border-color: rgba(48, 209, 88, 0.2); }
+    .theme-teal i { color: #64D2FF; } .theme-teal { border-color: rgba(100, 210, 255, 0.2); }
+</style>
+
+<script>
+    function openModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+    function closeModal() {
+        document.getElementById('addModal').style.display = 'none';
+    }
+    // Dışarı tıklayınca kapat
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('addModal')) {
+            closeModal();
+        }
+    }
+</script>
 
 {% endblock %}
