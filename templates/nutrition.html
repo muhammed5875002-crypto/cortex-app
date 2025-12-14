@@ -87,15 +87,12 @@
         // Titreşim
         try { window.navigator.vibrate(200); } catch(e){}
 
-        // Ses Efekti (Bip) - Dosya eklemediğimiz için çalışmayabilir ama kodda dursun
-        // var audio = new Audio('bip.mp3'); audio.play();
-
         document.getElementById('barcode').value = decodedText;
         
-        // Okuma başarılıysa hemen durdurma, kullanıcı görsün.
-        // Ama "Bulunuyor..." mesajı verebiliriz.
-        stopCamera(); 
+        // Hemen durdur ki kullanıcı "okudu mu?" diye beklemesin
+        stopCamera();
 
+        // Backend'e Sor
         fetch(`/get_barcode_data?code=${decodedText}`)
             .then(response => response.json())
             .then(data => {
@@ -105,55 +102,44 @@
                     document.getElementById('protein').value = data.protein;
                     alert("✅ Bulundu: " + data.name);
                 } else {
-                    alert("⚠️ Ürün yok. Lütfen bilgileri bir kez elle girin, hafızaya alacağım.");
+                    alert("⚠️ Ürün yok. Bilgileri elle girip kaydederseniz bir dahakine hatırlarım!");
                 }
             })
-            .catch(err => alert("Hata: " + err));
+            .catch(err => alert("Bağlantı Hatası: " + err));
     };
 
-    // --- KRİTİK AYARLAR (Çözünürlük Artırıldı) ---
+    // Ayarlar (Sadece gerekli olanlar)
     const config = { 
-        fps: 10, // Saniyede 10 kare tara
-        qrbox: { width: 300, height: 150 }, // Geniş dikdörtgen (Barkoda uygun)
-        aspectRatio: 1.0,
-        // Deneysel özellik: Telefonun kendi barkod motorunu kullanmaya zorla (Daha hızlıdır)
-        experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-        }
+        fps: 10, 
+        qrbox: { width: 250, height: 150 }, // Dikdörtgen tarama alanı
+        aspectRatio: 1.0
     };
 
-    // Kamera Ayarları (Odaklama ve Çözünürlük)
-    const cameraConfig = { 
-        facingMode: "environment", // Arka Kamera
-        focusMode: "continuous",   // Sürekli Odaklama (Destekleyen telefonlarda)
-        width: { min: 640, ideal: 1280, max: 1920 }, // HD görüntü iste (Bulanıklığı önler)
-        height: { min: 480, ideal: 720, max: 1080 }
-    };
-
+    // KAMERAYI BAŞLAT
     scanButton.onclick = () => {
         container.style.display = 'block';
         
+        // HATA BURADAYDI: Buraya sadece { facingMode: "environment" } veriyoruz.
+        // Ekstra ayar (çözünürlük, focus vs.) YOK.
         html5QrCode.start(
-            cameraConfig, 
+            { facingMode: "environment" }, 
             config, 
             qrCodeSuccessCallback
         ).catch(err => {
             console.error(err);
-            // Hata detayını göster
-            if(err.name == "NotAllowedError") alert("Kamera izni verilmedi!");
-            else alert("Kamera Hatası: " + err);
             container.style.display = 'none';
+            alert("Kamera Hatası: " + err);
         });
     };
 
     function stopCamera() {
         html5QrCode.stop().then(() => {
             container.style.display = 'none';
-        }).catch(err => console.log("Durdurma hatası (önemli değil):", err));
+        }).catch(err => console.log(err));
     }
     stopButton.onclick = stopCamera;
 
-    // Manuel Giriş Dinleyici
+    // Manuel Giriş
     document.getElementById('barcode').addEventListener('change', function() {
         let code = this.value;
         if(code.length > 3) {
