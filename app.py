@@ -4,10 +4,10 @@ import pyotp
 import random
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, Response, session, flash
+from flask import Flask, render_template, request, redirect, url_for, Response, session, flash, jsonify
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'om_armored_v11')
+app.secret_key = os.environ.get('SECRET_KEY', 'om_pro_max_v12')
 app.permanent_session_lifetime = timedelta(days=90)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -36,11 +36,11 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# --- DB KURULUM VE ONARIM (ZIRHLI) ---
+# --- DB KURULUM (Gelişmiş) ---
 def init_db():
     conn = get_db_connection()
     try:
-        # Tabloları Garantiye Al
+        # Tablolar
         conn.execute('CREATE TABLE IF NOT EXISTS supplements_def (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, dozaj TEXT)')
         conn.execute('CREATE TABLE IF NOT EXISTS supplement_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, sup_id INTEGER, tarih TEXT)')
         conn.execute('''CREATE TABLE IF NOT EXISTS workouts (
@@ -48,15 +48,11 @@ def init_db():
         conn.execute('''CREATE TABLE IF NOT EXISTS shortcuts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, url TEXT, icon TEXT, color_theme TEXT)''')
 
-        # --- SÜTUN KONTROLÜ (Eksik varsa tamamla) ---
-        # Workouts tablosunu kontrol et
+        # Eksik Kolon Kontrolü (Migration)
         cursor = conn.execute("PRAGMA table_info(workouts)")
         columns = [row['name'] for row in cursor.fetchall()]
-        
-        if 'tekrar' not in columns:
-            conn.execute('ALTER TABLE workouts ADD COLUMN tekrar INTEGER DEFAULT 0')
-        if 'agirlik' not in columns:
-            conn.execute('ALTER TABLE workouts ADD COLUMN agirlik REAL DEFAULT 0')
+        if 'tekrar' not in columns: conn.execute('ALTER TABLE workouts ADD COLUMN tekrar INTEGER DEFAULT 0')
+        if 'agirlik' not in columns: conn.execute('ALTER TABLE workouts ADD COLUMN agirlik REAL DEFAULT 0')
 
         # Varsayılan Supplementler
         cur = conn.execute('SELECT count(*) FROM supplements_def')
@@ -66,11 +62,10 @@ def init_db():
             
         conn.commit()
     except Exception as e:
-        print(f"DB ONARIM HATASI: {e}")
+        print(f"DB INIT HATASI: {e}")
     finally:
         conn.close()
 
-# Uygulama her başladığında DB'yi onar
 init_db()
 
 # --- ROTALAR ---
@@ -79,32 +74,18 @@ init_db()
 @requires_auth
 def dashboard():
     conn = get_db_connection()
-    try:
-        if request.method == 'POST':
-            if 'add_shortcut' in request.form:
-                name = request.form.get('name')
-                url = request.form.get('url')
-                if not url.startswith('http') and not '://' in url: url = 'https://' + url
-                
-                icons = ['globe', 'link', 'star', 'bookmark', 'bolt', 'rocket', 'heart', 'coffee']
-                colors = ['blue', 'purple', 'orange', 'pink', 'green', 'teal']
-                conn.execute('INSERT INTO shortcuts (name, url, icon, color_theme) VALUES (?, ?, ?, ?)', 
-                             (name, url, random.choice(icons), random.choice(colors)))
-                flash('Kısayol Eklendi', 'success')
-            
-            elif 'del_shortcut' in request.form:
-                conn.execute('DELETE FROM shortcuts WHERE id = ?', (request.form.get('s_id'),))
-                flash('Kısayol Silindi', 'warning')
-                
-            conn.commit()
-
-        shortcuts = conn.execute('SELECT * FROM shortcuts').fetchall()
-    except Exception as e:
-        print(f"DASHBOARD HATASI: {e}")
-        shortcuts = [] # Hata olursa boş liste göster, çökme!
-    finally:
-        conn.close()
-    
+    if request.method == 'POST':
+        if 'add_shortcut' in request.form:
+            url = request.form.get('url')
+            if not url.startswith('http'): url = 'https://' + url
+            icons, colors = ['globe', 'link', 'star', 'bolt'], ['blue', 'purple', 'orange', 'green']
+            conn.execute('INSERT INTO shortcuts (name, url, icon, color_theme) VALUES (?, ?, ?, ?)', 
+                         (request.form.get('name'), url, random.choice(icons), random.choice(colors)))
+        elif 'del_shortcut' in request.form:
+            conn.execute('DELETE FROM shortcuts WHERE id = ?', (request.form.get('s_id'),))
+        conn.commit()
+    shortcuts = conn.execute('SELECT * FROM shortcuts').fetchall()
+    conn.close()
     return render_template('dashboard.html', shortcuts=shortcuts)
 
 @app.route('/fitness', methods=['GET', 'POST'])
@@ -112,8 +93,7 @@ def dashboard():
 def fitness():
     conn = get_db_connection()
     bugun = datetime.now().strftime("%Y-%m-%d")
-
-    # ÇÖKME KORUMASI (TRY-EXCEPT)
+    
     try:
         if request.method == 'POST':
             if 'toggle_sup' in request.form:
@@ -123,49 +103,89 @@ def fitness():
                 else: conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?, ?)', (sup_id, bugun))
             
             elif 'add_workout' in request.form:
+                # Verileri al ve sayıya çevir (Hata önleyici)
+                sets = int(request.form.get('sets') or 0)
+                tekrar = int(request.form.get('tekrar') or 0)
+                agirlik = float(request.form.get('agirlik') or 0)
+                
                 conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tekrar, agirlik, tarih) VALUES (?, ?, ?, ?, ?, ?)', 
-                             (request.form.get('bolge'), request.form.get('hareket'), request.form.get('sets'), request.form.get('tekrar'), request.form.get('agirlik'), bugun))
-                flash('✅ Antrenman Kaydedildi', 'success')
+                             (request.form.get('bolge'), request.form.get('hareket'), sets, tekrar, agirlik, bugun))
+                flash('Kaydedildi', 'success')
 
             elif 'del_workout' in request.form:
                 conn.execute('DELETE FROM workouts WHERE id = ?', (request.form.get('w_id'),))
-                flash('Silindi.', 'warning')
-                
-            conn.commit()
+            
+            conn.commit() # MUTLAKA COMMIT
 
-        # VERİ ÇEKME
+        # Verileri Çek
         sups_def = conn.execute('SELECT * FROM supplements_def').fetchall()
         taken_logs = conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih = ?', (bugun,)).fetchall()
         taken_ids = [row['sup_id'] for row in taken_logs]
-        
         supplement_list = [{'id': s['id'], 'name': s['name'], 'dozaj': s['dozaj'], 'taken': (s['id'] in taken_ids)} for s in sups_def]
+        
         todays_workout = conn.execute('SELECT * FROM workouts WHERE tarih = ? ORDER BY id DESC', (bugun,)).fetchall()
 
-        # Takvim Mantığı
+        # Takvim Verisi
         dates = []
         for i in range(6, -1, -1):
             d = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
             day_name = (datetime.now() - timedelta(days=i)).strftime("%a")
-            tr_days = {'Mon':'Pzt', 'Tue':'Sal', 'Wed':'Çar', 'Thu':'Per', 'Fri':'Cum', 'Sat':'Cmt', 'Sun':'Paz'}
-            dates.append({'date': d, 'day': tr_days.get(day_name, day_name)})
-            
+            tr = {'Mon':'Pzt', 'Tue':'Sal', 'Wed':'Çar', 'Thu':'Per', 'Fri':'Cum', 'Sat':'Cmt', 'Sun':'Paz'}
+            dates.append({'date': d, 'day': tr.get(day_name, day_name)})
+        
         logs = conn.execute("SELECT DISTINCT tarih FROM workouts WHERE tarih >= date('now', '-7 days')").fetchall()
         active_dates = [l['tarih'] for l in logs]
         calendar_data = [{'day': d['day'], 'active': (d['date'] in active_dates), 'is_today': (d['date'] == bugun)} for d in dates]
 
     except Exception as e:
-        # HATA OLURSA BURASI ÇALIŞIR
-        print(f"FITNESS HATASI: {e}")
-        flash(f'Bir hata oluştu ama sayfa kurtarıldı: {str(e)}', 'danger')
-        # Boş veri dön ki sayfa açılsın
-        supplement_list = []
-        todays_workout = []
-        calendar_data = []
-    
+        print(f"FITNESS ERROR: {e}")
+        flash(f"Hata: {e}", "danger")
+        supplement_list, todays_workout, calendar_data = [], [], []
     finally:
         conn.close()
 
     return render_template('fitness.html', supplements=supplement_list, workouts=todays_workout, calendar=calendar_data)
+
+# --- YENİ ANALİZ ROTASI ---
+@app.route('/analysis')
+@requires_auth
+def analysis():
+    conn = get_db_connection()
+    try:
+        # 1. Toplam Antrenman Sayısı (Tüm zamanlar)
+        total_workouts = conn.execute('SELECT count(*) FROM workouts').fetchone()[0]
+        
+        # 2. En Çok Çalışılan Bölge
+        fav_bolge = conn.execute('''
+            SELECT bolge, count(*) as c FROM workouts 
+            GROUP BY bolge ORDER BY c DESC LIMIT 1
+        ''').fetchone()
+        fav_bolge_name = fav_bolge['bolge'] if fav_bolge else "Yok"
+        
+        # 3. Bölge Dağılımı (Pasta Grafik İçin)
+        dist = conn.execute('''
+            SELECT bolge, count(*) as count FROM workouts GROUP BY bolge
+        ''').fetchall()
+        # JSON formatına çevir (Frontend için)
+        chart_labels = [row['bolge'] for row in dist]
+        chart_data = [row['count'] for row in dist]
+        
+        # 4. Supplement Tutarlılığı (Son 30 gün)
+        sup_count = conn.execute("SELECT count(*) FROM supplement_logs WHERE tarih >= date('now', '-30 days')").fetchone()[0]
+
+    except Exception as e:
+        print(f"ANALYSIS ERROR: {e}")
+        total_workouts, fav_bolge_name, sup_count = 0, "--", 0
+        chart_labels, chart_data = [], []
+    finally:
+        conn.close()
+        
+    return render_template('analysis.html', 
+                           total=total_workouts, 
+                           fav=fav_bolge_name, 
+                           sup_score=sup_count,
+                           chart_labels=chart_labels, 
+                           chart_data=chart_data)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)
