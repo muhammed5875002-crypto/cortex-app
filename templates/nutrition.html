@@ -1,75 +1,141 @@
-@requires_auth
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="mb-4">
-    <h2 class="text-2xl font-bold text-white">Beslenme</h2>
-    <p class="text-gray-500 text-sm">Yakıt Durumu</p>
-</div>
-
-<div class="glass p-5 rounded-2xl mb-6 relative overflow-hidden">
-    <div class="absolute -right-6 -top-6 w-24 h-24 bg-orange-600 rounded-full blur-3xl opacity-20"></div>
-    
-    <div class="mb-4">
-        <div class="flex justify-between text-xs font-bold uppercase mb-1">
-            <span class="text-orange-400">Kalori</span>
-            <span class="text-white">{{ toplam_kalori }} / {{ hedef_kalori }}</span>
-        </div>
-        <div class="w-full bg-gray-700 rounded-full h-3">
-            <div class="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full transition-all duration-1000" style="width: {{ kalori_yuzde }}%"></div>
+<div class="row mb-3">
+    <div class="col-6">
+        <div class="card text-center p-2">
+            <small class="text-muted">Toplam Kalori</small>
+            <h3 class="text-warning mb-0">{{ total_cal }}</h3>
         </div>
     </div>
-
-    <div>
-        <div class="flex justify-between text-xs font-bold uppercase mb-1">
-            <span class="text-blue-400">Protein</span>
-            <span class="text-white">{{ toplam_protein }} / {{ hedef_protein }}g</span>
-        </div>
-        </div>
-</div>
-
-<form method="POST" class="glass p-4 rounded-2xl mb-6">
-    <div class="grid grid-cols-4 gap-2">
-        <div class="col-span-4">
-            <input type="text" name="isim" placeholder="Ne yedin? (Örn: 3 Yumurta)" required
-                class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-orange-500 text-sm">
-        </div>
-        <div class="col-span-2">
-            <input type="number" name="kalori" placeholder="Kcal" required
-                class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-orange-500 text-sm">
-        </div>
-        <div class="col-span-2">
-            <input type="number" name="protein" placeholder="Prot(g)" required
-                class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-orange-500 text-sm">
-        </div>
-        <div class="col-span-4 mt-1">
-            <button type="submit" name="yemek_ekle" class="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl transition-all">
-                ÖĞÜN EKLE 🍗
-            </button>
+    <div class="col-6">
+        <div class="card text-center p-2">
+            <small class="text-muted">Toplam Protein</small>
+            <h3 class="text-info mb-0">{{ total_pro }}g</h3>
         </div>
     </div>
-</form>
+</div>
 
-<div class="space-y-3 pb-20">
-    {% for yemek in yemekler %}
-    <div class="bg-gray-800 p-4 rounded-xl flex justify-between items-center border-l-2 border-orange-500">
-        <div>
-            <p class="font-bold text-white">{{ yemek['isim'] }}</p>
-            <p class="text-xs text-gray-400">{{ yemek['kalori'] }} kcal • <span class="text-blue-400">{{ yemek['protein'] }}g Prot</span></p>
-        </div>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>🍽️ YEMEK EKLE</span>
+        <button id="btn-scan" class="btn btn-sm btn-outline-warning">
+            <i class="fas fa-camera"></i> Barkod Oku
+        </button>
+    </div>
+    <div class="card-body">
         
+        <div id="reader-container" class="mb-3" style="display:none;">
+            <div id="reader" style="width: 100%;"></div>
+            <button id="btn-stop" class="btn btn-danger w-100 mt-2">Kamerayı Kapat</button>
+        </div>
+
         <form method="POST">
-            <input type="hidden" name="yemek_id" value="{{ yemek['id'] }}">
-            <button type="submit" name="yemek_sil" class="text-gray-600 hover:text-red-500 p-2">
-                <i class="fas fa-times"></i>
-            </button>
+            <input type="hidden" name="yemek_ekle" value="1">
+            
+            <div class="input-group mb-2">
+                <span class="input-group-text bg-dark text-white border-secondary"><i class="fas fa-barcode"></i></span>
+                <input type="text" id="barcode" name="barcode" class="form-control" placeholder="Barkod No (Varsa)">
+            </div>
+
+            <div class="mb-2">
+                <input type="text" id="isim" name="isim" class="form-control" placeholder="Yemek Adı (Örn: Muz)" required>
+            </div>
+            
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <input type="number" id="kalori" name="kalori" class="form-control" placeholder="Kalori">
+                </div>
+                <div class="col-6">
+                    <input type="number" id="protein" name="protein" class="form-control" placeholder="Protein (g)">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100">Listeye Ekle</button>
         </form>
     </div>
-    {% else %}
-    <div class="text-center py-6 opacity-50">
-        <i class="fas fa-carrot text-3xl mb-2 text-gray-600"></i>
-        <p class="text-sm">Bugün henüz bir şey yemedin.</p>
-    </div>
-    {% endfor %}
 </div>
+
+<div class="card mt-4">
+    <ul class="list-group list-group-flush">
+        {% for meal in meals %}
+        <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between align-items-center">
+            <div>
+                <strong>{{ meal.isim }}</strong>
+                <br>
+                <small class="text-muted">{{ meal.kalori }} kcal | {{ meal.protein }}g Prot</small>
+            </div>
+            <form method="POST" style="display:inline;">
+                <input type="hidden" name="yemek_sil" value="1">
+                <input type="hidden" name="yemek_id" value="{{ meal.id }}">
+                <button class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash"></i></button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+    const html5QrCode = new Html5Qrcode("reader");
+    const scanButton = document.getElementById('btn-scan');
+    const stopButton = document.getElementById('btn-stop');
+    const container = document.getElementById('reader-container');
+
+    // Barkod Bulununca Çalışacak Fonksiyon
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+        // 1. Sesi Çal (Bip!)
+        // 2. Formu Doldur
+        document.getElementById('barcode').value = decodedText;
+        
+        // 3. Backend'e sor: Bu ürün nedir?
+        fetch(`/get_barcode_data?code=${decodedText}`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.found) {
+                    document.getElementById('isim').value = data.name;
+                    document.getElementById('kalori').value = data.calories;
+                    document.getElementById('protein').value = data.protein;
+                    alert("Ürün Bulundu: " + data.name);
+                } else {
+                    alert("Ürün veritabanında yok. Lütfen elle doldurun, bir dahakine hatırlarım!");
+                }
+            });
+
+        // 4. Kamerayı Kapat
+        stopCamera();
+    };
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    // Kamerayı Başlat
+    scanButton.onclick = () => {
+        container.style.display = 'block';
+        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback);
+    };
+
+    // Kamerayı Durdur
+    function stopCamera() {
+        html5QrCode.stop().then(() => {
+            container.style.display = 'none';
+        }).catch(err => console.log(err));
+    }
+    stopButton.onclick = stopCamera;
+
+    // Eğer manuel barkod yazılıp enter'a basılırsa da sorgula
+    document.getElementById('barcode').addEventListener('change', function() {
+        let code = this.value;
+        if(code.length > 3) {
+             fetch(`/get_barcode_data?code=${code}`)
+            .then(response => response.json())
+            .then(data => {
+                if(data.found) {
+                    document.getElementById('isim').value = data.name;
+                    document.getElementById('kalori').value = data.calories;
+                    document.getElementById('protein').value = data.protein;
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

@@ -1,110 +1,68 @@
-@requires_auth
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="grid grid-cols-2 gap-4 mb-6">
-    <div class="glass p-4 rounded-2xl relative overflow-hidden">
-        <div class="absolute -right-4 -top-4 w-16 h-16 bg-blue-600 rounded-full blur-2xl opacity-30"></div>
-        <p class="text-gray-400 text-xs uppercase font-bold">Güncel Kilo</p>
-        <div class="flex items-end mt-1">
-            <span class="text-3xl font-bold text-white">
-                {% if son_log %}{{ son_log['kilo'] }}{% else %}--{% endif %}
-            </span>
-            <span class="text-sm text-gray-400 mb-1 ml-1">kg</span>
-        </div>
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="text-muted mb-3">BAĞLANTILAR</h5>
     </div>
-
-    <div class="glass p-4 rounded-2xl relative overflow-hidden">
-        <div class="absolute -right-4 -top-4 w-16 h-16 bg-green-600 rounded-full blur-2xl opacity-30"></div>
-        <p class="text-gray-400 text-xs uppercase font-bold">Bugün Biten</p>
-        <div class="flex items-end mt-1">
-            <span class="text-3xl font-bold text-green-400">{{ biten_gorev }}</span>
-            <span class="text-sm text-gray-400 mb-1 ml-1">Görev</span>
-        </div>
+    <div class="col-4">
+        <a href="https://ticktick.com/webapp" target="_blank" class="launch-btn launch-ticktick">
+            <i class="fas fa-check-double me-2"></i> TickTick
+        </a>
+    </div>
+    <div class="col-4">
+        <a href="https://www.fatsecret.com.tr/Default.aspx" target="_blank" class="launch-btn launch-fatsecret">
+            <i class="fas fa-carrot me-2"></i> FatSecret
+        </a>
+    </div>
+    <div class="col-4">
+        <a href="https://calendar.google.com" target="_blank" class="launch-btn launch-cal">
+            <i class="fas fa-calendar-alt me-2"></i> Takvim
+        </a>
     </div>
 </div>
 
-<a href="/library" class="block mb-6 group">
-    <div class="glass p-5 rounded-2xl border border-purple-500/30 flex items-center justify-between relative overflow-hidden transition-all hover:scale-[1.02]">
-        <div class="absolute right-0 top-0 w-32 h-32 bg-purple-600 rounded-full blur-3xl opacity-20 group-hover:opacity-30"></div>
-        
-        <div class="flex items-center gap-4 relative z-10">
-            <div class="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
-                <i class="fas fa-brain text-2xl"></i>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">📉 GÜN SONU RAPORU</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="gun_ozeti" value="1">
+                    
+                    <div class="mb-3">
+                        <label>Güncel Kilo (kg)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-white border-secondary"><i class="fas fa-weight"></i></span>
+                            <input type="number" step="0.1" name="kilo" class="form-control" placeholder="{{ son_kilo }}">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Raporu Kaydet</button>
+                </form>
             </div>
-            <div>
-                <h3 class="text-lg font-bold text-white">Gelişim Kütüphanesi</h3>
-                <p class="text-xs text-purple-300">Dil, Diksiyon ve Kod Deposu</p>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">🎯 AKTİF HEDEFLER (ROADMAP)</div>
+            <div class="card-body">
+                {% if hedefler %}
+                    <ul class="list-group list-group-flush bg-transparent">
+                    {% for hedef in hedefler %}
+                        <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between">
+                            <span>{{ hedef.baslik }}</span>
+                            <span class="badge bg-secondary">{{ hedef.kategori }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center">Henüz hedef girilmedi.</p>
+                {% endif %}
+                <a href="/roadmap" class="btn btn-sm btn-outline-light w-100 mt-3">Tüm Planı Gör</a>
             </div>
         </div>
-        <div class="relative z-10 text-gray-400">
-            <i class="fas fa-chevron-right"></i>
-        </div>
     </div>
-</a>
-
-<div class="glass p-5 rounded-2xl mb-6">
-    <h3 class="text-sm font-bold text-gray-300 mb-3">Hızlı Veri Girişi</h3>
-    <form action="/add_log" method="POST" class="flex gap-2">
-        <input type="number" step="0.1" name="kilo" placeholder="Kilo (78.0)" class="bg-gray-800 text-white rounded-xl px-4 py-3 w-full outline-none focus:ring-2 focus:ring-blue-500">
-        <button type="submit" class="bg-blue-600 px-4 rounded-xl text-white font-bold shadow-lg hover:bg-blue-500">
-            <i class="fas fa-plus"></i>
-        </button>
-    </form>
 </div>
-
-
-<div class="glass p-5 rounded-2xl mb-6 border border-gray-700">
-    <h3 class="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
-        <i class="fas fa-bell text-yellow-500"></i> Hızlı Not / Hatırlatıcı
-    </h3>
-    <form method="POST" class="space-y-3">
-        <input type="text" name="icerik" placeholder="Ne yapman gerekiyor?" required
-            class="w-full bg-gray-800 text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-yellow-500 placeholder-gray-500 text-sm">
-        
-        <div class="flex gap-2">
-            <input type="datetime-local" name="hedef_zaman" 
-                class="bg-gray-800 text-gray-400 p-3 rounded-xl outline-none text-xs w-full">
-            
-            <label class="cursor-pointer">
-                <input type="checkbox" name="acil_mi" class="peer sr-only">
-                <div class="h-full px-4 bg-gray-800 peer-checked:bg-red-600 rounded-xl flex items-center justify-center transition-all text-gray-400 peer-checked:text-white">
-                    <i class="fas fa-exclamation"></i>
-                </div>
-            </label>
-        </div>
-
-        <button type="submit" name="not_ekle" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition-all text-sm">
-            KAYDET
-        </button>
-    </form>
-</div>
-
-{% if hatirlaticilar %}
-<div class="space-y-3 mb-8">
-    <h3 class="text-xs font-bold text-gray-500 uppercase ml-1">Yaklaşanlar & Notlar</h3>
-    {% for not in hatirlaticilar %}
-    <div class="glass p-4 rounded-xl flex justify-between items-center border-l-4 {{ 'border-red-500 bg-red-500/10' if not['oncelik'] == 'ACIL' else 'border-yellow-500' }}">
-        <div>
-            <p class="font-bold text-white text-sm">{{ not['icerik'] }}</p>
-            {% if not['hedef_zaman'] %}
-                <p class="text-xs text-yellow-500 mt-1 flex items-center gap-1">
-                    <i class="far fa-clock"></i> {{ not['hedef_zaman'] }}
-                </p>
-            {% else %}
-                <p class="text-[10px] text-gray-500 mt-1">📌 Sabit Not</p>
-            {% endif %}
-        </div>
-        
-        <form method="POST">
-            <input type="hidden" name="rem_id" value="{{ not['id'] }}">
-            <button type="submit" name="not_sil" class="text-gray-500 hover:text-white p-2">
-                <i class="fas fa-check"></i>
-            </button>
-        </form>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
 {% endblock %}
