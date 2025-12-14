@@ -2,98 +2,51 @@
 
 {% block content %}
 
-<div class="glass-card mb-4 text-center py-4" style="background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%); border: 1px solid rgba(255,255,255,0.05);">
-    <h3 class="fw-bold text-white mb-1">CORTEX <span class="text-primary">HUB</span></h3>
-    <p class="text-secondary small mb-0">"Disiplin, özgürlüktür."</p>
-</div>
-
-<div class="row g-3">
-    
-    <div class="col-6">
-        <a href="fatsecret://" class="d-block text-decoration-none">
-            <div class="btn-app-card d-flex flex-column align-items-center justify-content-center">
-                <div class="icon-box mb-2" style="background: linear-gradient(135deg, #30D158, #208c3a); box-shadow: 0 0 15px rgba(48, 209, 88, 0.3);">
-                    <i class="fas fa-utensils fa-lg text-white"></i>
-                </div>
-                <span class="fw-bold text-white">FatSecret</span>
-                <small class="text-muted" style="font-size: 0.7rem;">Uygulamayı Aç</small>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-6">
-        <a href="ticktick://" class="d-block text-decoration-none">
-            <div class="btn-app-card d-flex flex-column align-items-center justify-content-center">
-                <div class="icon-box mb-2" style="background: linear-gradient(135deg, #0A84FF, #0056b3); box-shadow: 0 0 15px rgba(10, 132, 255, 0.3);">
-                    <i class="fas fa-check-double fa-lg text-white"></i>
-                </div>
-                <span class="fw-bold text-white">TickTick</span>
-                <small class="text-muted" style="font-size: 0.7rem;">Görevler</small>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-6">
-        <a href="calshow://" class="d-block text-decoration-none">
-            <div class="btn-app-card d-flex flex-column align-items-center justify-content-center">
-                <div class="icon-box mb-2" style="background: linear-gradient(135deg, #FF453A, #b02a22); box-shadow: 0 0 15px rgba(255, 69, 58, 0.3);">
-                    <i class="fas fa-calendar-alt fa-lg text-white"></i>
-                </div>
-                <span class="fw-bold text-white">Takvim</span>
-                <small class="text-muted" style="font-size: 0.7rem;">Program</small>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-6">
-        <a href="/scanner" class="d-block text-decoration-none">
-            <div class="btn-app-card d-flex flex-column align-items-center justify-content-center" style="border: 1px solid rgba(255, 255, 255, 0.1);">
-                <div class="icon-box mb-2 bg-dark border border-secondary">
-                    <i class="fas fa-barcode fa-lg text-white"></i>
-                </div>
-                <span class="fw-bold text-white">Araçlar</span>
-                <small class="text-muted" style="font-size: 0.7rem;">Ürün Tara</small>
-            </div>
-        </a>
-    </div>
-</div>
-
-<div class="glass-card mt-4 p-3">
-    <div class="d-flex align-items-center mb-2">
-        <i class="fas fa-pen-fancy text-warning me-2"></i>
-        <span class="fw-bold text-white">Günlük Hedef</span>
-    </div>
-    <form method="POST">
-        <textarea name="motto" class="form-control bg-dark border-0 text-white" placeholder="Bugün neyi başaracaksın?" rows="2" style="resize:none; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">{{ motto }}</textarea>
-        <div class="text-end mt-2">
-            <button type="submit" class="btn btn-sm btn-outline-warning">Not Et</button>
+<div class="ios-card" style="background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h3 style="margin: 0; font-size: 22px;">Bugün Hazır mısın?</h3>
+            <p style="margin: 5px 0 0 0; color: var(--text-sec); font-size: 14px;">Her şey kontrol altında.</p>
         </div>
-    </form>
+        <i class="fas fa-check-circle" style="font-size: 40px; color: var(--success); opacity: 0.8;"></i>
+    </div>
 </div>
 
-<style>
-    .btn-app-card {
-        background: rgba(44, 44, 46, 0.6);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 20px 10px;
-        height: 140px;
-        transition: transform 0.2s, background 0.2s;
-        border: 1px solid rgba(255,255,255,0.05);
-    }
-    .btn-app-card:active {
-        transform: scale(0.96);
-        background: rgba(60, 60, 62, 0.8);
-    }
-    .icon-box {
-        width: 50px;
-        height: 50px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-</style>
+<h4 style="margin: 20px 0 10px 0; font-size: 18px;">Araçlar & Bağlantılar</h4>
 
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+
+    <a href="https://docs.google.com/spreadsheets" target="_blank" style="text-decoration: none;">
+        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
+            <i class="fas fa-file-excel" style="font-size: 32px; color: #34A853; margin-bottom: 10px;"></i>
+            <span style="font-weight: 600; color: white;">Sheets</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Tablolar</span>
+        </div>
+    </a>
+
+    <a href="https://www.office.com/launch/excel" target="_blank" style="text-decoration: none;">
+        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
+            <i class="fas fa-table" style="font-size: 32px; color: #107C41; margin-bottom: 10px;"></i>
+            <span style="font-weight: 600; color: white;">Excel</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Office 365</span>
+        </div>
+    </a>
+
+    <a href="fatsecret://" style="text-decoration: none;">
+        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
+            <i class="fas fa-utensils" style="font-size: 32px; color: var(--success); margin-bottom: 10px;"></i>
+            <span style="font-weight: 600; color: white;">FatSecret</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Beslenme</span>
+        </div>
+    </a>
+
+    <a href="calshow://" style="text-decoration: none;">
+        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
+            <i class="fas fa-calendar-day" style="font-size: 32px; color: var(--danger); margin-bottom: 10px;"></i>
+            <span style="font-weight: 600; color: white;">Takvim</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Planlama</span>
+        </div>
+    </a>
+
+</div>
 {% endblock %}

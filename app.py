@@ -1,60 +1,22 @@
 import os
-import requests
+import sqlite3
 import pyotp
+from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, Response, session
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'cortex_hub_key_v4')
+app.secret_key = os.environ.get('SECRET_KEY', 'om_system_key_2025')
+app.permanent_session_lifetime = timedelta(days=90)
 
-# --- API AYARLARI ---
-# Open Food Facts, kimliksiz istekleri engeller. Buraya kimlik ekledik.
-HEADERS = {
-    'User-Agent': 'CortexOS - Student Project - Ankara (muhammed@example.com)'
-}
+# --- VERİTABANI BAĞLANTISI ---
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
 
-def search_api(query, is_barcode=False):
-    results = []
-    try:
-        if is_barcode:
-            # BARKOD SORGUSU
-            url = f"https://world.openfoodfacts.org/api/v0/product/{query}.json"
-            res = requests.get(url, headers=HEADERS, timeout=10)
-            data = res.json()
-            
-            if data.get('status') == 1:
-                results.append(parse_product(data['product']))
-        else:
-            # İSİM SORGUSU (Genişletilmiş)
-            # page_size=20 yaptık, world veritabanını kullanıyoruz.
-            url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={query}&search_simple=1&action=process&json=1&page_size=20"
-            
-            res = requests.get(url, headers=HEADERS, timeout=10)
-            data = res.json()
-            
-            products = data.get('products', [])
-            for p in products:
-                # Sadece ismi olanları al, gerisi çöp veri olmasın
-                if 'product_name' in p and p['product_name'].strip() != "":
-                    results.append(parse_product(p))
-                
-    except Exception as e:
-        print(f"API HATASI: {e}") # Loglara hata basar
-        return [] # Hata olursa boş liste dön
-        
-    return results
-
-def parse_product(p):
-    n = p.get('nutriments', {})
-    # Veriler boşsa 0 ata ama hata verme
-    return {
-        'name': p.get('product_name', 'İsimsiz Ürün'),
-        'brand': p.get('brands', ''),
-        'cal': int(n.get('energy-kcal_100g', 0) or n.get('energy-kcal', 0) or 0),
-        'pro': int(n.get('proteins_100g', 0) or n.get('proteins', 0) or 0),
-        'fat': int(n.get('fat_100g', 0) or n.get('fat', 0) or 0),
-        'carb': int(n.get('carbohydrates_100g', 0) or n.get('carbohydrates', 0) or 0)
-    }
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # --- GÜVENLİK ---
 def check_auth(username, password):
@@ -74,30 +36,95 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
+# --- DB KURULUMU (SUPPLEMENT SİSTEMİ) ---
+def init_db():
+    conn = get_db_connection()
+    
+    # Temel Tablolar
+    conn.execute('CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kilo REAL)')
+    
+    # SUPPLEMENT TANIMLARI (Sabit Liste)
+    conn.execute('CREATE TABLE IF NOT EXISTS supplements_def (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, dozaj TEXT)')
+    
+    # GÜNLÜK SUPPLEMENT TAKİBİ
+    conn.execute('CREATE TABLE IF NOT EXISTS supplement_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, sup_id INTEGER, tarih TEXT)')
+    
+    # ANTRENMAN GÜNLÜĞÜ
+    conn.execute('CREATE TABLE IF NOT EXISTS workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, bolge TEXT, hareket TEXT, set_sayisi INTEGER, tarih TEXT)')
+
+    # Varsayılan Supplementleri Ekle (Eğer boşsa)
+    cur = conn.execute('SELECT count(*) FROM supplements_def')
+    if cur.fetchone()[0] == 0:
+        defaults = [
+            ('Creatine', '5g'), ('Whey Protein', '1 Ölçek'), 
+            ('Multivitamin', '1 Tablet'), ('Pre-Workout', '1 Ölçek'),
+            ('Omega-3', '1000mg'), ('ZMA', 'Yatmadan Önce')
+        ]
+        conn.executemany('INSERT INTO supplements_def (name, dozaj) VALUES (?, ?)', defaults)
+        
+    conn.commit()
+    conn.close()
+
+init_db()
+
 # --- ROTALAR ---
 
 @app.route('/', methods=['GET', 'POST'])
 @requires_auth
 def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/fitness', methods=['GET', 'POST'])
+@requires_auth
+def fitness():
+    conn = get_db_connection()
+    bugun = datetime.now().strftime("%Y-%m-%d")
+
     if request.method == 'POST':
-        session['motto'] = request.form.get('motto')
-    return render_template('dashboard.html', motto=session.get('motto', ''))
+        # SUPPLEMENT TİKLEME / KALDIRMA
+        if 'toggle_sup' in request.form:
+            sup_id = request.form.get('sup_id')
+            # Bugün bu supplement alınmış mı?
+            check = conn.execute('SELECT id FROM supplement_logs WHERE sup_id = ? AND tarih = ?', (sup_id, bugun)).fetchone()
+            if check:
+                conn.execute('DELETE FROM supplement_logs WHERE id = ?', (check['id'],)) # Varsa sil (Tiki kaldır)
+            else:
+                conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?, ?)', (sup_id, bugun)) # Yoksa ekle
+        
+        # ANTRENMAN EKLEME
+        elif 'add_workout' in request.form:
+            bolge = request.form.get('bolge')
+            hareket = request.form.get('hareket')
+            sets = request.form.get('sets')
+            conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tarih) VALUES (?, ?, ?, ?)', (bolge, hareket, sets, bugun))
 
-@app.route('/scanner')
-@requires_auth
-def scanner():
-    return render_template('scanner.html')
+        # ANTRENMAN SİLME
+        elif 'del_workout' in request.form:
+            conn.execute('DELETE FROM workouts WHERE id = ?', (request.form.get('w_id'),))
 
-@app.route('/api_search')
-@requires_auth
-def api_search():
-    q = request.args.get('q')
-    type_ = request.args.get('type')
-    if not q: return jsonify([])
+        conn.commit()
+        return redirect(url_for('fitness'))
+
+    # Verileri Çek
+    sups_def = conn.execute('SELECT * FROM supplements_def').fetchall()
+    # Bugün alınanları listele
+    taken_logs = conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih = ?', (bugun,)).fetchall()
+    taken_ids = [row['sup_id'] for row in taken_logs]
     
-    is_barcode = (type_ == 'barcode')
-    # Arama sonucunu JSON olarak döndür
-    return jsonify(search_api(q, is_barcode))
+    # Birleştir: Hangi supplement, dozaj ne, alındı mı?
+    supplement_list = []
+    for s in sups_def:
+        supplement_list.append({
+            'id': s['id'],
+            'name': s['name'],
+            'dozaj': s['dozaj'],
+            'taken': (s['id'] in taken_ids)
+        })
+
+    todays_workout = conn.execute('SELECT * FROM workouts WHERE tarih = ?', (bugun,)).fetchall()
+    
+    conn.close()
+    return render_template('fitness.html', supplements=supplement_list, workouts=todays_workout)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)

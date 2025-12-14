@@ -1,0 +1,96 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<h4 style="margin: 0 0 10px 0; font-size: 18px;">Günlük Kür (Stack)</h4>
+<div class="ios-card">
+    
+    {% for sup in supplements %}
+    <form method="POST" style="margin:0;">
+        <input type="hidden" name="toggle_sup" value="1">
+        <input type="hidden" name="sup_id" value="{{ sup.id }}">
+        
+        <button type="submit" style="background: none; border: none; width: 100%; padding: 0; text-align: left;">
+            <div class="check-row">
+                <div style="display: flex; align-items: center;">
+                    <div style="
+                        width: 32px; height: 32px; 
+                        background: {{ 'rgba(48, 209, 88, 0.2)' if sup.taken else 'rgba(255,255,255,0.1)' }}; 
+                        border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                        <i class="fas fa-pills" style="color: {{ '#30D158' if sup.taken else '#8E8E93' }};"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: {{ 'white' if sup.taken else '#8E8E93' }};">{{ sup.name }}</div>
+                        <div style="font-size: 12px; color: var(--text-sec);">{{ sup.dozaj }}</div>
+                    </div>
+                </div>
+                
+                {% if sup.taken %}
+                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>
+                {% else %}
+                    <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #333;"></div>
+                {% endif %}
+            </div>
+        </button>
+    </form>
+    {% endfor %}
+</div>
+
+<h4 style="margin: 20px 0 10px 0; font-size: 18px;">Bugünkü Antrenman</h4>
+
+<div class="ios-card">
+    <form method="POST" style="display: flex; gap: 10px; align-items: flex-end;">
+        <input type="hidden" name="add_workout" value="1">
+        
+        <div style="flex: 1;">
+            <label style="font-size: 12px; color: var(--text-sec); margin-left: 5px;">Bölge</label>
+            <select name="bolge" style="background-color: var(--bg-input); color: white; padding: 10px; border-radius: 8px; width: 100%; border: none;">
+                <option>Göğüs</option>
+                <option>Sırt</option>
+                <option>Bacak</option>
+                <option>Omuz</option>
+                <option>Kol</option>
+                <option>Kardiyo</option>
+            </select>
+        </div>
+        
+        <div style="flex: 2;">
+            <label style="font-size: 12px; color: var(--text-sec); margin-left: 5px;">Hareket</label>
+            <input type="text" name="hareket" placeholder="Örn: Bench Press" required style="padding: 10px;">
+        </div>
+
+        <div style="flex: 1;">
+             <label style="font-size: 12px; color: var(--text-sec); margin-left: 5px;">Set</label>
+            <input type="number" name="sets" placeholder="4" required style="padding: 10px;">
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 50px; border-radius: 8px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <i class="fas fa-plus"></i>
+        </button>
+    </form>
+</div>
+
+{% for w in workouts %}
+<div class="ios-card" style="padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; align-items: center;">
+        <div style="background: rgba(10, 132, 255, 0.2); width: 8px; height: 8px; border-radius: 50%; margin-right: 12px;"></div>
+        <div>
+            <div style="font-weight: 600;">{{ w.hareket }}</div>
+            <div style="font-size: 12px; color: var(--text-sec);">{{ w.bolge }} • {{ w.set_sayisi }} Set</div>
+        </div>
+    </div>
+    <form method="POST" style="margin:0;">
+        <input type="hidden" name="del_workout" value="1">
+        <input type="hidden" name="w_id" value="{{ w.id }}">
+        <button type="submit" style="background: none; border: none; color: var(--text-sec); cursor: pointer;">
+            <i class="fas fa-trash"></i>
+        </button>
+    </form>
+</div>
+{% else %}
+<div style="text-align: center; color: var(--text-sec); font-size: 14px; margin-top: 10px;">
+    Henüz antrenman girilmedi.
+</div>
+{% endfor %}
+
+{% endblock %}
