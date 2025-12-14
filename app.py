@@ -34,7 +34,7 @@ def check_auth(username, password):
         return False
     
     # Render'dan gizli anahtarı çek
-    gizli_anahtar = os.environ.get('25V6OSR7OFKXQMUGUOCKEDLKLYHG3OK5')
+    gizli_anahtar = os.environ.get('TOTP_SECRET')
     
     # Anahtar yoksa geçici şifre (Acil durum)
     if not gizli_anahtar:
