@@ -5,29 +5,44 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'cortex_simple_key')
+app.secret_key = os.environ.get('SECRET_KEY', 'cortex_hub_key')
 
-# BASİT HAFIZA (Veritabanı yerine geçici RAM kullanıyoruz, gerekirse dosyaya yazarız)
-# Ama senin isteğin "Yönlendirme" olduğu için motto'yu session'da tutabiliriz.
-# Veya basit bir txt dosyası.
-
-# --- BARKOD API ---
-def get_product_from_api(barcode):
-    url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
+# --- API SORGUSU (Filtresiz & Geniş) ---
+def search_api(query, is_barcode=False):
+    results = []
     try:
-        res = requests.get(url, timeout=5).json()
-        if res.get('status') == 1:
-            p = res['product']
-            n = p.get('nutriments', {})
-            return {
-                'found': True,
-                'name': p.get('product_name', 'Bilinmeyen'),
-                'calories': int(n.get('energy-kcal_100g', 0)),
-                'protein': int(n.get('proteins_100g', 0)),
-                'fat': int(n.get('fat_100g', 0))
-            }
-    except: pass
-    return {'found': False}
+        if is_barcode:
+            # Barkod Sorgusu
+            url = f"https://world.openfoodfacts.org/api/v0/product/{query}.json"
+            res = requests.get(url, timeout=5).json()
+            if res.get('status') == 1:
+                p = res['product']
+                results.append(parse_product(p))
+        else:
+            # İsim Arama (Nescafe vb.)
+            # page_size=20 yaptık ki daha çok sonuç gelsin
+            url = f"https://tr.openfoodfacts.org/cgi/search.pl?search_terms={query}&search_simple=1&action=process&json=1&page_size=20"
+            res = requests.get(url, timeout=5).json()
+            products = res.get('products', [])
+            for p in products:
+                results.append(parse_product(p))
+                
+    except Exception as e:
+        print(f"Hata: {e}")
+        
+    return results
+
+def parse_product(p):
+    # Veri yoksa '?' koy, gizleme!
+    n = p.get('nutriments', {})
+    return {
+        'name': p.get('product_name', 'İsimsiz Ürün'),
+        'brand': p.get('brands', ''),
+        'cal': int(n.get('energy-kcal_100g', 0)),
+        'pro': int(n.get('proteins_100g', 0)),
+        'fat': int(n.get('fat_100g', 0)),
+        'carb': int(n.get('carbohydrates_100g', 0))
+    }
 
 # --- GÜVENLİK ---
 def check_auth(username, password):
@@ -52,20 +67,23 @@ def requires_auth(f):
 @app.route('/', methods=['GET', 'POST'])
 @requires_auth
 def dashboard():
-    if request.method == 'POST':
-        session['motto'] = request.form.get('motto')
-    return render_template('dashboard.html', motto=session.get('motto', ''))
+    # Dashboard artık sadece yönlendirme merkezi
+    return render_template('dashboard.html')
 
 @app.route('/scanner')
 @requires_auth
 def scanner():
     return render_template('scanner.html')
 
-@app.route('/get_barcode_data')
+@app.route('/api_search')
 @requires_auth
-def get_barcode_data():
-    code = request.args.get('code')
-    return jsonify(get_product_from_api(code))
+def api_search():
+    q = request.args.get('q')
+    type_ = request.args.get('type') # 'text' veya 'barcode'
+    if not q: return jsonify([])
+    
+    is_barcode = (type_ == 'barcode')
+    return jsonify(search_api(q, is_barcode))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)
