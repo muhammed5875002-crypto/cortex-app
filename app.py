@@ -6,10 +6,10 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, Response, session
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'om_system_key_2025')
+app.secret_key = os.environ.get('SECRET_KEY', 'om_system_key_fixed')
 app.permanent_session_lifetime = timedelta(days=90)
 
-# --- VERİTABANI BAĞLANTISI ---
+# --- DB BAĞLANTISI ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
 
@@ -36,35 +36,37 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# --- DB KURULUMU (SUPPLEMENT SİSTEMİ) ---
+# --- DB KURULUMU (Onarıcı Mod) ---
 def init_db():
-    conn = get_db_connection()
-    
-    # Temel Tablolar
-    conn.execute('CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kilo REAL)')
-    
-    # SUPPLEMENT TANIMLARI (Sabit Liste)
-    conn.execute('CREATE TABLE IF NOT EXISTS supplements_def (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, dozaj TEXT)')
-    
-    # GÜNLÜK SUPPLEMENT TAKİBİ
-    conn.execute('CREATE TABLE IF NOT EXISTS supplement_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, sup_id INTEGER, tarih TEXT)')
-    
-    # ANTRENMAN GÜNLÜĞÜ
-    conn.execute('CREATE TABLE IF NOT EXISTS workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, bolge TEXT, hareket TEXT, set_sayisi INTEGER, tarih TEXT)')
-
-    # Varsayılan Supplementleri Ekle (Eğer boşsa)
-    cur = conn.execute('SELECT count(*) FROM supplements_def')
-    if cur.fetchone()[0] == 0:
-        defaults = [
-            ('Creatine', '5g'), ('Whey Protein', '1 Ölçek'), 
-            ('Multivitamin', '1 Tablet'), ('Pre-Workout', '1 Ölçek'),
-            ('Omega-3', '1000mg'), ('ZMA', 'Yatmadan Önce')
-        ]
-        conn.executemany('INSERT INTO supplements_def (name, dozaj) VALUES (?, ?)', defaults)
+    try:
+        conn = get_db_connection()
         
-    conn.commit()
-    conn.close()
+        # Tabloları Garantiye Al
+        conn.execute('CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kilo REAL)')
+        conn.execute('CREATE TABLE IF NOT EXISTS supplements_def (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, dozaj TEXT)')
+        conn.execute('CREATE TABLE IF NOT EXISTS supplement_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, sup_id INTEGER, tarih TEXT)')
+        conn.execute('CREATE TABLE IF NOT EXISTS workouts (id INTEGER PRIMARY KEY AUTOINCREMENT, bolge TEXT, hareket TEXT, set_sayisi INTEGER, tarih TEXT)')
+        
+        # Varsayılan Supplement Kontrolü
+        # Hata olmaması için tabloyu kontrol et, boşsa doldur
+        cur = conn.execute('SELECT count(*) FROM supplements_def')
+        if cur.fetchone()[0] == 0:
+            defaults = [
+                ('Creatine', '5g'), 
+                ('Whey Protein', '1 Ölçek'), 
+                ('Multivitamin', '1 Tablet'), 
+                ('Pre-Workout', '1 Ölçek'),
+                ('Omega-3', '1000mg'), 
+                ('ZMA', 'Yatmadan Önce')
+            ]
+            conn.executemany('INSERT INTO supplements_def (name, dozaj) VALUES (?, ?)', defaults)
+            
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"DB HATASI: {e}")
 
+# Uygulama başlarken DB'yi kontrol et
 init_db()
 
 # --- ROTALAR ---
@@ -81,47 +83,53 @@ def fitness():
     bugun = datetime.now().strftime("%Y-%m-%d")
 
     if request.method == 'POST':
-        # SUPPLEMENT TİKLEME / KALDIRMA
-        if 'toggle_sup' in request.form:
-            sup_id = request.form.get('sup_id')
-            # Bugün bu supplement alınmış mı?
-            check = conn.execute('SELECT id FROM supplement_logs WHERE sup_id = ? AND tarih = ?', (sup_id, bugun)).fetchone()
-            if check:
-                conn.execute('DELETE FROM supplement_logs WHERE id = ?', (check['id'],)) # Varsa sil (Tiki kaldır)
-            else:
-                conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?, ?)', (sup_id, bugun)) # Yoksa ekle
-        
-        # ANTRENMAN EKLEME
-        elif 'add_workout' in request.form:
-            bolge = request.form.get('bolge')
-            hareket = request.form.get('hareket')
-            sets = request.form.get('sets')
-            conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tarih) VALUES (?, ?, ?, ?)', (bolge, hareket, sets, bugun))
+        try:
+            # SUPPLEMENT TİKLEME
+            if 'toggle_sup' in request.form:
+                sup_id = request.form.get('sup_id')
+                check = conn.execute('SELECT id FROM supplement_logs WHERE sup_id = ? AND tarih = ?', (sup_id, bugun)).fetchone()
+                if check:
+                    conn.execute('DELETE FROM supplement_logs WHERE id = ?', (check['id'],))
+                else:
+                    conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?, ?)', (sup_id, bugun))
+            
+            # ANTRENMAN EKLEME
+            elif 'add_workout' in request.form:
+                bolge = request.form.get('bolge')
+                hareket = request.form.get('hareket')
+                sets = request.form.get('sets')
+                conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tarih) VALUES (?, ?, ?, ?)', (bolge, hareket, sets, bugun))
 
-        # ANTRENMAN SİLME
-        elif 'del_workout' in request.form:
-            conn.execute('DELETE FROM workouts WHERE id = ?', (request.form.get('w_id'),))
-
-        conn.commit()
+            # ANTRENMAN SİLME
+            elif 'del_workout' in request.form:
+                conn.execute('DELETE FROM workouts WHERE id = ?', (request.form.get('w_id'),))
+                
+            conn.commit()
+        except Exception as e:
+            print(f"POST HATASI: {e}")
+            
         return redirect(url_for('fitness'))
 
-    # Verileri Çek
-    sups_def = conn.execute('SELECT * FROM supplements_def').fetchall()
-    # Bugün alınanları listele
-    taken_logs = conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih = ?', (bugun,)).fetchall()
-    taken_ids = [row['sup_id'] for row in taken_logs]
-    
-    # Birleştir: Hangi supplement, dozaj ne, alındı mı?
-    supplement_list = []
-    for s in sups_def:
-        supplement_list.append({
-            'id': s['id'],
-            'name': s['name'],
-            'dozaj': s['dozaj'],
-            'taken': (s['id'] in taken_ids)
-        })
+    # VERİ ÇEKME (Hata korumalı)
+    try:
+        sups_def = conn.execute('SELECT * FROM supplements_def').fetchall()
+        taken_logs = conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih = ?', (bugun,)).fetchall()
+        taken_ids = [row['sup_id'] for row in taken_logs]
+        
+        supplement_list = []
+        for s in sups_def:
+            supplement_list.append({
+                'id': s['id'],
+                'name': s['name'],
+                'dozaj': s['dozaj'],
+                'taken': (s['id'] in taken_ids)
+            })
 
-    todays_workout = conn.execute('SELECT * FROM workouts WHERE tarih = ?', (bugun,)).fetchall()
+        todays_workout = conn.execute('SELECT * FROM workouts WHERE tarih = ?', (bugun,)).fetchall()
+    except:
+        # Eğer tablo yoksa boş liste dön, site çökmesin
+        supplement_list = []
+        todays_workout = []
     
     conn.close()
     return render_template('fitness.html', supplements=supplement_list, workouts=todays_workout)

@@ -2,19 +2,35 @@
 
 {% block content %}
 
-<div class="ios-card" style="background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);">
+<div class="ios-card" style="background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%); margin-bottom: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <h3 style="margin: 0; font-size: 22px;">Bugün Hazır mısın?</h3>
-            <p style="margin: 5px 0 0 0; color: var(--text-sec); font-size: 14px;">Her şey kontrol altında.</p>
+            <h3 style="margin: 0; font-size: 22px;">Komuta Merkezi</h3>
+            <p style="margin: 5px 0 0 0; color: var(--text-sec); font-size: 14px;">Odaklan ve Yönet.</p>
         </div>
-        <i class="fas fa-check-circle" style="font-size: 40px; color: var(--success); opacity: 0.8;"></i>
+        <i class="fas fa-layer-group" style="font-size: 35px; color: var(--primary); opacity: 0.8;"></i>
     </div>
 </div>
 
-<h4 style="margin: 20px 0 10px 0; font-size: 18px;">Araçlar & Bağlantılar</h4>
+<h4 style="margin: 0 0 10px 0; font-size: 18px;">Uygulamalar</h4>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+
+    <a href="ticktick://" style="text-decoration: none;">
+        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px; border: 1px solid rgba(10, 132, 255, 0.2);">
+            <i class="fas fa-check-double" style="font-size: 32px; color: #0A84FF; margin-bottom: 10px;"></i>
+            <span style="font-weight: 600; color: white;">TickTick</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Görevler</span>
+        </div>
+    </a>
+
+    <a href="fatsecret://" style="text-decoration: none;">
+        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px; border: 1px solid rgba(48, 209, 88, 0.2);">
+            <i class="fas fa-utensils" style="font-size: 32px; color: #30D158; margin-bottom: 10px;"></i>
+            <span style="font-weight: 600; color: white;">FatSecret</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Beslenme</span>
+        </div>
+    </a>
 
     <a href="https://docs.google.com/spreadsheets" target="_blank" style="text-decoration: none;">
         <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
@@ -24,29 +40,19 @@
         </div>
     </a>
 
-    <a href="https://www.office.com/launch/excel" target="_blank" style="text-decoration: none;">
-        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
-            <i class="fas fa-table" style="font-size: 32px; color: #107C41; margin-bottom: 10px;"></i>
-            <span style="font-weight: 600; color: white;">Excel</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Office 365</span>
-        </div>
-    </a>
-
-    <a href="fatsecret://" style="text-decoration: none;">
-        <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
-            <i class="fas fa-utensils" style="font-size: 32px; color: var(--success); margin-bottom: 10px;"></i>
-            <span style="font-weight: 600; color: white;">FatSecret</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Beslenme</span>
-        </div>
-    </a>
-
     <a href="calshow://" style="text-decoration: none;">
         <div class="ios-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 120px;">
-            <i class="fas fa-calendar-day" style="font-size: 32px; color: var(--danger); margin-bottom: 10px;"></i>
+            <i class="fas fa-calendar-day" style="font-size: 32px; color: #FF453A; margin-bottom: 10px;"></i>
             <span style="font-weight: 600; color: white;">Takvim</span>
-            <span style="font-size: 12px; color: var(--text-sec);">Planlama</span>
+            <span style="font-size: 12px; color: var(--text-sec);">Plan</span>
         </div>
     </a>
 
 </div>
+
+<div class="ios-card" style="margin-top: 20px;">
+    <div style="font-size: 14px; color: var(--text-sec); margin-bottom: 5px;"><i class="fas fa-info-circle me-2"></i>Sistem Durumu</div>
+    <div style="font-size: 16px; font-weight: 500;">Tüm sistemler aktif. İyi çalışmalar Şef.</div>
+</div>
+
 {% endblock %}
