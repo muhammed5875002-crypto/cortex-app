@@ -1,75 +1,90 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="row mb-3">
-    <div class="col-6">
-        <div class="card text-center p-2">
-            <small class="text-muted">Toplam Kalori</small>
-            <h3 class="text-warning mb-0">{{ total_cal }}</h3>
-        </div>
-    </div>
-    <div class="col-6">
-        <div class="card text-center p-2">
-            <small class="text-muted">Toplam Protein</small>
-            <h3 class="text-info mb-0">{{ total_pro }}g</h3>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card p-3">
+            <h6 class="text-muted small">GÜNLÜK HEDEF (2500 kcal)</h6>
+            <div class="progress mb-2" style="height: 15px; background-color: #333;">
+                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ (totals.cal / 2500)*100 }}%">
+                    {{ totals.cal }}
+                </div>
+            </div>
+            <div class="d-flex justify-content-between text-center small">
+                <span class="text-info">Pro: {{ totals.pro }}g</span>
+                <span class="text-success">Karb: {{ totals.carb }}g</span>
+                <span class="text-danger">Yağ: {{ totals.fat }}g</span>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="card">
+<div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span>🍽️ YEMEK EKLE</span>
-        <button id="btn-scan" class="btn btn-sm btn-outline-warning">
-            <i class="fas fa-camera"></i> Barkod Oku
+        <span class="text-primary fw-bold">🍽️ EKLE</span>
+        <button id="btn-scan" class="btn btn-sm btn-outline-secondary text-white">
+            <i class="fas fa-barcode text-warning"></i>
         </button>
     </div>
-    <div class="card-body">
+    <div class="card-body position-relative">
         
-        <div id="reader-container" class="mb-3" style="display:none;">
-            <div id="reader" style="width: 100%;"></div>
-            <button id="btn-stop" class="btn btn-danger w-100 mt-2">Kamerayı Kapat</button>
+        <div id="reader-container" class="mb-3" style="display:none; border-radius:8px; overflow:hidden;">
+            <div id="reader"></div>
+            <button id="btn-stop" class="btn btn-danger w-100 mt-2 btn-sm">Kapat</button>
         </div>
 
         <form method="POST">
             <input type="hidden" name="yemek_ekle" value="1">
             
-            <div class="input-group mb-2">
-                <span class="input-group-text bg-dark text-white border-secondary"><i class="fas fa-barcode"></i></span>
-                <input type="text" id="barcode" name="barcode" class="form-control" placeholder="Barkod No (Varsa)">
+            <div class="mb-2 position-relative">
+                <input type="text" id="isim" name="isim" class="form-control" placeholder="Ne yedin? (Örn: Zeytin)" autocomplete="off" required>
+                <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1000; display:none;"></div>
             </div>
 
-            <div class="mb-2">
-                <input type="text" id="isim" name="isim" class="form-control" placeholder="Yemek Adı (Örn: Muz)" required>
-            </div>
-            
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <input type="number" id="kalori" name="kalori" class="form-control" placeholder="Kalori">
-                </div>
-                <div class="col-6">
-                    <input type="number" id="protein" name="protein" class="form-control" placeholder="Protein (g)">
-                </div>
+            <div id="gram-container" class="input-group mb-2" style="display:none;">
+                <span class="input-group-text bg-secondary text-white">Miktar</span>
+                <input type="number" id="gram" class="form-control" value="100">
+                <span class="input-group-text bg-dark text-white">gr</span>
             </div>
 
-            <button type="submit" class="btn btn-success w-100">Listeye Ekle</button>
+            <input type="hidden" id="ref_cal" value="0">
+            <input type="hidden" id="ref_pro" value="0">
+            <input type="hidden" id="ref_carb" value="0">
+            <input type="hidden" id="ref_fat" value="0">
+
+            <div class="row g-2 mb-2">
+                <div class="col-3"><input type="text" id="kalori" name="kalori" class="form-control form-control-sm bg-dark text-white border-0" readonly placeholder="Cal"></div>
+                <div class="col-3"><input type="text" id="protein" name="protein" class="form-control form-control-sm bg-dark text-white border-0" readonly placeholder="Pro"></div>
+                <div class="col-3"><input type="text" id="carbs" name="carbs" class="form-control form-control-sm bg-dark text-white border-0" readonly placeholder="Carb"></div>
+                <div class="col-3"><input type="text" id="fat" name="fat" class="form-control form-control-sm bg-dark text-white border-0" readonly placeholder="Yağ"></div>
+            </div>
+
+            <select name="category" class="form-select form-select-sm mb-3 bg-dark text-white border-secondary">
+                <option value="Kahvaltı">☕ Kahvaltı</option>
+                <option value="Öğle Yemeği">☀️ Öğle</option>
+                <option value="Akşam Yemeği">🌙 Akşam</option>
+                <option value="Atıştırmalık" selected>🍪 Atıştırmalık</option>
+            </select>
+
+            <button type="submit" class="btn btn-success w-100 fw-bold">KAYDET</button>
         </form>
     </div>
 </div>
 
-<div class="card mt-4">
+<div class="card">
     <ul class="list-group list-group-flush">
         {% for meal in meals %}
-        <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between align-items-center">
+        <li class="list-group-item bg-transparent text-white border-secondary d-flex justify-content-between align-items-center py-2">
             <div>
+                <span class="badge bg-secondary me-1" style="font-size:0.6rem">{{ meal.category[0] }}</span>
                 <strong>{{ meal.isim }}</strong>
-                <br>
-                <small class="text-muted">{{ meal.kalori }} kcal | {{ meal.protein }}g Prot</small>
+                <div class="small text-muted">
+                    <span class="text-warning">{{ meal.kalori }}k</span>
+                    <span class="text-info">P:{{ meal.protein }}</span>
+                    <span class="text-success">C:{{ meal.carbs }}</span>
+                </div>
             </div>
-            <form method="POST" style="display:inline;">
-                <input type="hidden" name="yemek_sil" value="1">
-                <input type="hidden" name="yemek_id" value="{{ meal.id }}">
-                <button class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash"></i></button>
-            </form>
+            <form method="POST" class="m-0"><input type="hidden" name="yemek_sil" value="1"><input type="hidden" name="yemek_id" value="{{ meal.id }}"><button class="btn btn-sm text-danger p-0"><i class="fas fa-times"></i></button></form>
         </li>
         {% endfor %}
     </ul>
@@ -77,100 +92,103 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <script>
-    const scanButton = document.getElementById('btn-scan');
-    const stopButton = document.getElementById('btn-stop');
-    const container = document.getElementById('reader-container');
-    const previewElement = document.getElementById('reader'); // Div'in içi
+    // --- 1. CANLI ARAMA SİSTEMİ ---
+    const isimInput = document.getElementById('isim');
+    const resultsDiv = document.getElementById('search-results');
+    const gramContainer = document.getElementById('gram-container');
+    const gramInput = document.getElementById('gram');
+    let debounceTimer;
 
-    // Ses Efekti
-    function bip() { try { window.navigator.vibrate(200); } catch(e){} }
-
-    // Quagga Başlatma Ayarları
-    scanButton.onclick = () => {
-        container.style.display = 'block';
+    isimInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const query = this.value;
         
-        Quagga.init({
-            inputStream : {
-                name : "Live",
-                type : "LiveStream",
-                target: previewElement, // Kamerayı buraya bas
-                constraints: {
-                    facingMode: "environment", // Arka Kamera
-                    width: 640,
-                    height: 480,
-                    aspectRatio: {min: 1, max: 2}
-                }
-            },
-            // BURASI ÖNEMLİ: Sadece EAN (Market) barkodu arıyoruz
-            decoder : {
-                readers : ["ean_reader"] 
-            },
-            // Görüntü İyileştirme Ayarları
-            locate: true,
-            locator: {
-                patchSize: "medium",
-                halfSample: true
-            }
-        }, function(err) {
-            if (err) {
-                console.log(err);
-                alert("Kamera hatası: " + err);
-                container.style.display = 'none';
-                return;
-            }
-            Quagga.start();
-        });
-    };
+        if(query.length < 2) { resultsDiv.style.display = 'none'; return; }
 
-    // BARKOD BULUNUNCA NE OLSUN?
-    Quagga.onDetected(function(result) {
-        var code = result.codeResult.code;
-        
-        // Hatalı okumaları engellemek için basit kontrol
-        // Market barkodları genelde 8 veya 13 haneli olur
-        if (code && code.length > 7) {
-            bip();
-            document.getElementById('barcode').value = code;
-            
-            // Kamerayı hemen durdur
-            stopCamera();
-
-            // Backend'e sor
-            fetch(`/get_barcode_data?code=${code}`)
-                .then(response => response.json())
+        debounceTimer = setTimeout(() => {
+            fetch(`/search_food_api?q=${query}`)
+                .then(res => res.json())
                 .then(data => {
-                    if(data.found) {
-                        document.getElementById('isim').value = data.name;
-                        document.getElementById('kalori').value = data.calories;
-                        document.getElementById('protein').value = data.protein;
-                        alert("✅ Bulundu: " + data.name);
+                    resultsDiv.innerHTML = '';
+                    if(data.length > 0) {
+                        data.forEach(item => {
+                            const a = document.createElement('a');
+                            a.className = 'list-group-item list-group-item-action bg-dark text-white border-secondary';
+                            a.style.cursor = 'pointer';
+                            // Listede nasıl görüneceği
+                            a.innerHTML = `<strong>${item.name}</strong> <small class="text-muted">(${item.cal} kcal/100g)</small>`;
+                            
+                            // Tıklayınca ne olsun?
+                            a.onclick = () => {
+                                selectFood(item);
+                            };
+                            resultsDiv.appendChild(a);
+                        });
+                        resultsDiv.style.display = 'block';
                     } else {
-                        alert("⚠️ Ürün: " + code + " veritabanında yok. Elle girerseniz kaydederim.");
+                        resultsDiv.style.display = 'none';
                     }
                 });
-        }
+        }, 500); // 0.5 saniye bekle (Sunucuyu yorma)
     });
 
-    function stopCamera() {
-        Quagga.stop();
-        container.style.display = 'none';
+    // Yemek Seçilince
+    function selectFood(item) {
+        isimInput.value = item.name;
+        resultsDiv.style.display = 'none';
+        
+        // 100g değerlerini referans olarak sakla
+        document.getElementById('ref_cal').value = item.cal;
+        document.getElementById('ref_pro').value = item.pro;
+        document.getElementById('ref_carb').value = item.carb;
+        document.getElementById('ref_fat').value = item.fat;
+
+        // Gramaj kutusunu aç ve hesapla (Varsayılan 100g)
+        gramContainer.style.display = 'flex';
+        gramInput.value = 100;
+        calculateMacros(100);
     }
-    stopButton.onclick = stopCamera;
-    
-    // Manuel Giriş Tetikleyicisi
-    document.getElementById('barcode').addEventListener('change', function() {
-        let code = this.value;
-        if(code.length > 3) {
-             fetch(`/get_barcode_data?code=${code}`)
-            .then(response => response.json())
-            .then(data => {
+
+    // Gramaj Değişince Hesapla
+    gramInput.addEventListener('input', function() {
+        calculateMacros(this.value);
+    });
+
+    function calculateMacros(grams) {
+        const ratio = grams / 100;
+        document.getElementById('kalori').value = Math.round(document.getElementById('ref_cal').value * ratio);
+        document.getElementById('protein').value = Math.round(document.getElementById('ref_pro').value * ratio);
+        document.getElementById('carbs').value = Math.round(document.getElementById('ref_carb').value * ratio);
+        document.getElementById('fat').value = Math.round(document.getElementById('ref_fat').value * ratio);
+    }
+
+    // --- 2. BARKOD SİSTEMİ (Öncekiyle Aynı) ---
+    const scanButton = document.getElementById('btn-scan');
+    const container = document.getElementById('reader-container');
+    const previewElement = document.getElementById('reader');
+
+    scanButton.onclick = () => {
+        container.style.display = 'block';
+        Quagga.init({
+            inputStream : { name : "Live", type : "LiveStream", target: previewElement, 
+                constraints: { facingMode: "environment", width: 640, height: 480, aspectRatio: {min: 1, max: 2}} },
+            decoder : { readers : ["ean_reader"] },
+            locate: true
+        }, function(err) { if (!err) Quagga.start(); });
+    };
+
+    Quagga.onDetected(function(result) {
+        var code = result.codeResult.code;
+        if (code && code.length > 7) {
+            fetch(`/get_barcode_data?code=${code}`).then(res => res.json()).then(data => {
                 if(data.found) {
-                    document.getElementById('isim').value = data.name;
-                    document.getElementById('kalori').value = data.calories;
-                    document.getElementById('protein').value = data.protein;
-                }
+                    selectFood({name: data.name, cal: data.calories, pro: data.protein, carb: data.carbs, fat: data.fat});
+                    Quagga.stop(); container.style.display = 'none';
+                } else { alert("Bulunamadı."); Quagga.stop(); container.style.display = 'none'; }
             });
         }
     });
+    
+    document.getElementById('btn-stop').onclick = () => { Quagga.stop(); container.style.display = 'none'; };
 </script>
 {% endblock %}

@@ -7,12 +7,9 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'cortex_pro_2025_key')
+app.permanent_session_lifetime = timedelta(days=90)
 
-# --- GÜVENLİK AYARLARI ---
-app.secret_key = os.environ.get('SECRET_KEY', 'gizli_cortex_anahtari_2025')
-app.permanent_session_lifetime = timedelta(days=30) # Seni 30 gün hatırlar
-
-# --- VERİTABANI BAĞLANTISI ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
 
@@ -21,42 +18,53 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- BARKOD MOTORU (Open Food Facts + Yerel Hafıza) ---
-def get_product_info(barcode):
-    conn = get_db_connection()
+# --- GELİŞMİŞ ÜRÜN ÇEKME (Hem Barkod Hem Text Arama İçin) ---
+def search_product_online(query, is_barcode=False):
+    # Barkodsa direkt ürüne git, Yazıysa aramaya git
+    if is_barcode:
+        url = f"https://world.openfoodfacts.org/api/v0/product/{query}.json"
+    else:
+        # Türkiye odaklı arama, JSON formatında, ilk 5 sonuç
+        url = f"https://tr.openfoodfacts.org/cgi/search.pl?search_terms={query}&search_simple=1&action=process&json=1&page_size=5"
     
-    # 1. Önce Hafızaya Bak
-    local = conn.execute('SELECT * FROM products WHERE barcode = ?', (barcode,)).fetchone()
-    if local:
-        conn.close()
-        return {'found': True, 'source': 'local', 'name': local['name'], 'calories': local['calories'], 'protein': local['protein']}
-    
-    # 2. Yoksa İnternete Sor
-    url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
     try:
         res = requests.get(url, timeout=5)
         data = res.json()
-        if data.get('status') == 1:
-            p = data['product']
-            name = p.get('product_name', 'Bilinmeyen Ürün')
-            nutri = p.get('nutriments', {})
-            cal = int(nutri.get('energy-kcal_100g', 0))
-            prot = int(nutri.get('proteins_100g', 0))
-            
-            # 3. Hafızaya Kaydet
-            conn.execute('INSERT INTO products (barcode, name, calories, protein) VALUES (?, ?, ?, ?)', (barcode, name, cal, prot))
-            conn.commit()
-            conn.close()
-            return {'found': True, 'source': 'api', 'name': name, 'calories': cal, 'protein': prot}
+        
+        results = []
+        
+        # Eğer Barkodsa tek ürün döner
+        if is_barcode:
+            if data.get('status') == 1:
+                products = [data['product']]
+            else:
+                return []
+        else:
+            # Arama ise ürün listesi döner
+            products = data.get('products', [])
+
+        for p in products:
+            n = p.get('nutriments', {})
+            # Sadece kalorisi belli olan ürünleri alalım
+            if 'energy-kcal_100g' in n:
+                results.append({
+                    'name': p.get('product_name', 'Bilinmeyen'),
+                    'brand': p.get('brands', ''),
+                    'cal': int(n.get('energy-kcal_100g', 0)),
+                    'pro': int(n.get('proteins_100g', 0)),
+                    'carb': int(n.get('carbohydrates_100g', 0)),
+                    'fat': int(n.get('fat_100g', 0))
+                })
+        return results
     except:
-        pass
+        return []
 
-    conn.close()
-    return {'found': False}
+# ... (Auth ve Init_DB kısımları aynı, yer kaplamasın diye kısalttım, önceki kodun aynısı kalabilir) ...
+# Sadece aşağıda Init_DB ve Auth fonksiyonlarının olduğu gibi durduğundan emin ol.
+# Eğer sildiysen önceki cevabımdaki init_db ve auth kısımlarını buraya eklemeyi unutma.
 
-# --- GÜVENLİK KONTROLÜ ---
 def check_auth(username, password):
-    if username != 'Muhammed': return False # Kendi adını buraya yaz
+    if username != 'Muhammed': return False 
     secret = os.environ.get('TOTP_SECRET')
     if not secret: return password == 'admin123'
     return pyotp.TOTP(secret).verify(password)
@@ -67,19 +75,18 @@ def requires_auth(f):
         if session.get('logged_in'): return f(*args, **kwargs)
         auth = request.authorization
         if not auth or not check_auth(auth.username, auth.password):
-            return Response('Giriş Yapmalısınız', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+            return Response('Giriş Gerekli', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
         session['logged_in'] = True
         return f(*args, **kwargs)
     return decorated
 
-# --- DB KURULUMU ---
 def init_db():
     conn = get_db_connection()
-    # Tablolar
     conn.execute('CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, tarih TEXT, kilo REAL)')
-    conn.execute('CREATE TABLE IF NOT EXISTS nutrition (id INTEGER PRIMARY KEY AUTOINCREMENT, isim TEXT NOT NULL, kalori INTEGER, protein INTEGER, tarih TEXT)')
-    conn.execute('CREATE TABLE IF NOT EXISTS products (barcode TEXT PRIMARY KEY, name TEXT, calories INTEGER, protein INTEGER)')
     conn.execute('CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, baslik TEXT, kategori TEXT, hedef_tarih TEXT, ilerleme INTEGER DEFAULT 0)')
+    conn.execute('''CREATE TABLE IF NOT EXISTS nutrition (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, isim TEXT NOT NULL, kalori INTEGER, protein INTEGER, carbs INTEGER, fat INTEGER, category TEXT DEFAULT 'Atıştırmalık', tarih TEXT)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS products (barcode TEXT PRIMARY KEY, name TEXT, calories INTEGER, protein INTEGER, carbs INTEGER, fat INTEGER)''')
     conn.commit()
     conn.close()
 
@@ -90,33 +97,41 @@ init_db()
 @app.route('/', methods=['GET', 'POST'])
 @requires_auth
 def dashboard():
+    return render_template('dashboard.html', son_kilo="--", hedefler=[])
+
+# --- YENİ: METİN ARAMA ROTASI ---
+@app.route('/search_food_api')
+@requires_auth
+def search_food_api():
+    query = request.args.get('q')
+    if not query or len(query) < 2: return jsonify([])
+    
+    # 1. Önce veritabanımızdan ara (Hızlı)
     conn = get_db_connection()
-    if request.method == 'POST':
-        # Hızlı Gün Sonu Girişi
-        if 'gun_ozeti' in request.form:
-            kilo = request.form.get('kilo')
-            if kilo:
-                tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
-                conn.execute('INSERT INTO logs (tarih, kilo) VALUES (?, ?)', (tarih, kilo))
-            # Buraya ilerde "tamamlanan görev sayısı" da eklenir
-        conn.commit()
-        return redirect(url_for('dashboard'))
-
-    # Özet Veriler
-    son_kilo = conn.execute('SELECT kilo FROM logs ORDER BY id DESC LIMIT 1').fetchone()
-    son_kilo = son_kilo['kilo'] if son_kilo else "--"
+    local_results = conn.execute("SELECT * FROM products WHERE name LIKE ? LIMIT 3", ('%'+query+'%',)).fetchall()
+    results = []
     
-    hedefler = conn.execute('SELECT * FROM goals ORDER BY hedef_tarih ASC LIMIT 3').fetchall()
-    
+    for l in local_results:
+        results.append({'source':'local', 'name': l['name'], 'cal': l['calories'], 'pro': l['protein'], 'carb': l['carbs'], 'fat': l['fat']})
     conn.close()
-    return render_template('dashboard.html', son_kilo=son_kilo, hedefler=hedefler)
+    
+    # 2. Sonra İnternetten ara
+    online_results = search_product_online(query, is_barcode=False)
+    
+    # Listeleri birleştir
+    return jsonify(results + online_results)
 
-# --- BARKOD API (JS buraya istek atacak) ---
+# --- BARKOD ROTASI (Güncellendi) ---
 @app.route('/get_barcode_data')
 @requires_auth
 def get_barcode_data():
     code = request.args.get('code')
-    return jsonify(get_product_info(code)) if code else jsonify({'found': False})
+    results = search_product_online(code, is_barcode=True)
+    if results:
+        # İlk sonucu dön
+        res = results[0]
+        return jsonify({'found': True, 'name': res['name'], 'calories': res['cal'], 'protein': res['pro'], 'carbs': res['carb'], 'fat': res['fat']})
+    return jsonify({'found': False})
 
 @app.route('/nutrition', methods=['GET', 'POST'])
 @requires_auth
@@ -127,17 +142,18 @@ def nutrition():
     if request.method == 'POST':
         if 'yemek_ekle' in request.form:
             isim = request.form.get('isim')
-            kal = int(request.form.get('kalori') or 0)
-            prot = int(request.form.get('protein') or 0)
-            barcode = request.form.get('barcode')
+            # Değerler artık hesaplanmış olarak gelecek
+            kal = int(float(request.form.get('kalori') or 0))
+            prot = int(float(request.form.get('protein') or 0))
+            carb = int(float(request.form.get('carbs') or 0))
+            fat = int(float(request.form.get('fat') or 0))
+            cat = request.form.get('category')
             
-            # Eğer yeni barkodsa hafızaya ekle
-            if barcode:
-                try:
-                    conn.execute('INSERT OR IGNORE INTO products (barcode, name, calories, protein) VALUES (?, ?, ?, ?)', (barcode, isim, kal, prot))
-                except: pass
+            # Eğer ürün yeni ve barkodu yoksa, ismine göre products tablosuna eklemeyi deneyebiliriz (Opsiyonel)
+            # Ama şimdilik sadece nutrition'a ekleyelim, karmaşa olmasın.
             
-            conn.execute('INSERT INTO nutrition (isim, kalori, protein, tarih) VALUES (?, ?, ?, ?)', (isim, kal, prot, bugun))
+            conn.execute('''INSERT INTO nutrition (isim, kalori, protein, carbs, fat, category, tarih) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''', (isim, kal, prot, carb, fat, cat, bugun))
         
         elif 'yemek_sil' in request.form:
             conn.execute('DELETE FROM nutrition WHERE id = ?', (request.form.get('yemek_id'),))
@@ -146,16 +162,16 @@ def nutrition():
         return redirect(url_for('nutrition'))
 
     meals = conn.execute('SELECT * FROM nutrition WHERE tarih = ? ORDER BY id DESC', (bugun,)).fetchall()
-    total_cal = sum(m['kalori'] for m in meals)
-    total_pro = sum(m['protein'] for m in meals)
-    conn.close()
-    return render_template('nutrition.html', meals=meals, total_cal=total_cal, total_pro=total_pro)
+    
+    totals = {'cal':0, 'pro':0, 'carb':0, 'fat':0}
+    for m in meals:
+        totals['cal'] += m['kalori'] or 0
+        totals['pro'] += m['protein'] or 0
+        totals['carb'] += m['carbs'] or 0
+        totals['fat'] += m['fat'] or 0
 
-# Roadmap sayfası (Basit tuttum)
-@app.route('/roadmap')
-@requires_auth
-def roadmap():
-    return "Roadmap Yakında..."
+    conn.close()
+    return render_template('nutrition.html', meals=meals, totals=totals)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)
