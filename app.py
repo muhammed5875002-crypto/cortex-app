@@ -30,11 +30,11 @@ def get_db_connection():
 
 def check_auth(username, password):
     # Kullanıcı adı kontrolü
-    if username != 'Muhammed': # Buraya istediğin ismi yaz
+    if username != 'Muhammed[-]': # Buraya istediğin ismi yaz
         return False
     
     # Render'dan gizli anahtarı çek
-    gizli_anahtar = os.environ.get('TOTP_SECRET')
+    gizli_anahtar = os.environ.get('25V6OSR7OFKXQMUGUOCKEDLKLYHG3OK5')
     
     # Anahtar yoksa geçici şifre (Acil durum)
     if not gizli_anahtar:
