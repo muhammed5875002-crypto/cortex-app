@@ -82,13 +82,20 @@
     const stopButton = document.getElementById('btn-stop');
     const container = document.getElementById('reader-container');
 
-    // Barkod Bulununca Çalışacak Fonksiyon
+    // Başarılı Okuma
     const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-        // 1. Sesi Çal (Bip!)
-        // 2. Formu Doldur
+        // Titreşim
+        try { window.navigator.vibrate(200); } catch(e){}
+
+        // Ses Efekti (Bip) - Dosya eklemediğimiz için çalışmayabilir ama kodda dursun
+        // var audio = new Audio('bip.mp3'); audio.play();
+
         document.getElementById('barcode').value = decodedText;
         
-        // 3. Backend'e sor: Bu ürün nedir?
+        // Okuma başarılıysa hemen durdurma, kullanıcı görsün.
+        // Ama "Bulunuyor..." mesajı verebiliriz.
+        stopCamera(); 
+
         fetch(`/get_barcode_data?code=${decodedText}`)
             .then(response => response.json())
             .then(data => {
@@ -96,33 +103,57 @@
                     document.getElementById('isim').value = data.name;
                     document.getElementById('kalori').value = data.calories;
                     document.getElementById('protein').value = data.protein;
-                    alert("Ürün Bulundu: " + data.name);
+                    alert("✅ Bulundu: " + data.name);
                 } else {
-                    alert("Ürün veritabanında yok. Lütfen elle doldurun, bir dahakine hatırlarım!");
+                    alert("⚠️ Ürün yok. Lütfen bilgileri bir kez elle girin, hafızaya alacağım.");
                 }
-            });
-
-        // 4. Kamerayı Kapat
-        stopCamera();
+            })
+            .catch(err => alert("Hata: " + err));
     };
 
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    // --- KRİTİK AYARLAR (Çözünürlük Artırıldı) ---
+    const config = { 
+        fps: 10, // Saniyede 10 kare tara
+        qrbox: { width: 300, height: 150 }, // Geniş dikdörtgen (Barkoda uygun)
+        aspectRatio: 1.0,
+        // Deneysel özellik: Telefonun kendi barkod motorunu kullanmaya zorla (Daha hızlıdır)
+        experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+        }
+    };
 
-    // Kamerayı Başlat
+    // Kamera Ayarları (Odaklama ve Çözünürlük)
+    const cameraConfig = { 
+        facingMode: "environment", // Arka Kamera
+        focusMode: "continuous",   // Sürekli Odaklama (Destekleyen telefonlarda)
+        width: { min: 640, ideal: 1280, max: 1920 }, // HD görüntü iste (Bulanıklığı önler)
+        height: { min: 480, ideal: 720, max: 1080 }
+    };
+
     scanButton.onclick = () => {
         container.style.display = 'block';
-        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback);
+        
+        html5QrCode.start(
+            cameraConfig, 
+            config, 
+            qrCodeSuccessCallback
+        ).catch(err => {
+            console.error(err);
+            // Hata detayını göster
+            if(err.name == "NotAllowedError") alert("Kamera izni verilmedi!");
+            else alert("Kamera Hatası: " + err);
+            container.style.display = 'none';
+        });
     };
 
-    // Kamerayı Durdur
     function stopCamera() {
         html5QrCode.stop().then(() => {
             container.style.display = 'none';
-        }).catch(err => console.log(err));
+        }).catch(err => console.log("Durdurma hatası (önemli değil):", err));
     }
     stopButton.onclick = stopCamera;
 
-    // Eğer manuel barkod yazılıp enter'a basılırsa da sorgula
+    // Manuel Giriş Dinleyici
     document.getElementById('barcode').addEventListener('change', function() {
         let code = this.value;
         if(code.length > 3) {
