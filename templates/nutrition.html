@@ -84,15 +84,12 @@
 
     // Başarılı Okuma
     const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-        // Titreşim
         try { window.navigator.vibrate(200); } catch(e){}
 
         document.getElementById('barcode').value = decodedText;
-        
-        // Hemen durdur ki kullanıcı "okudu mu?" diye beklemesin
-        stopCamera();
+        stopCamera(); // Okur okumaz durdur
 
-        // Backend'e Sor
+        // Backend Sorgusu
         fetch(`/get_barcode_data?code=${decodedText}`)
             .then(response => response.json())
             .then(data => {
@@ -102,25 +99,30 @@
                     document.getElementById('protein').value = data.protein;
                     alert("✅ Bulundu: " + data.name);
                 } else {
-                    alert("⚠️ Ürün yok. Bilgileri elle girip kaydederseniz bir dahakine hatırlarım!");
+                    alert("⚠️ Ürün yok. Elle girip kaydederseniz hafızaya alırım.");
                 }
             })
-            .catch(err => alert("Bağlantı Hatası: " + err));
+            .catch(err => alert("Hata: " + err));
     };
 
-    // Ayarlar (Sadece gerekli olanlar)
+    // --- KRİTİK AYARLAR ---
     const config = { 
         fps: 10, 
-        qrbox: { width: 250, height: 150 }, // Dikdörtgen tarama alanı
-        aspectRatio: 1.0
+        // Tarama alanını İNCE UZUN DİKDÖRTGEN yaptık (Barkod şekli)
+        qrbox: { width: 300, height: 100 }, 
+        aspectRatio: 1.0,
+        // İŞTE EKSİK OLAN KISIM BURASIYDI 👇
+        formatsToSupport: [ 
+            Html5QrcodeSupportedFormats.EAN_13, // Standart Market Barkodu
+            Html5QrcodeSupportedFormats.EAN_8,  // Küçük Paketler
+            Html5QrcodeSupportedFormats.UPC_A   // İthal Ürünler
+        ]
     };
 
-    // KAMERAYI BAŞLAT
+    // Başlat
     scanButton.onclick = () => {
         container.style.display = 'block';
         
-        // HATA BURADAYDI: Buraya sadece { facingMode: "environment" } veriyoruz.
-        // Ekstra ayar (çözünürlük, focus vs.) YOK.
         html5QrCode.start(
             { facingMode: "environment" }, 
             config, 
