@@ -75,73 +75,89 @@
     </ul>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <script>
-    const html5QrCode = new Html5Qrcode("reader");
     const scanButton = document.getElementById('btn-scan');
     const stopButton = document.getElementById('btn-stop');
     const container = document.getElementById('reader-container');
+    const previewElement = document.getElementById('reader'); // Div'in içi
 
-    // Başarılı Okuma
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-        try { window.navigator.vibrate(200); } catch(e){}
+    // Ses Efekti
+    function bip() { try { window.navigator.vibrate(200); } catch(e){} }
 
-        document.getElementById('barcode').value = decodedText;
-        stopCamera(); // Okur okumaz durdur
-
-        // Backend Sorgusu
-        fetch(`/get_barcode_data?code=${decodedText}`)
-            .then(response => response.json())
-            .then(data => {
-                if(data.found) {
-                    document.getElementById('isim').value = data.name;
-                    document.getElementById('kalori').value = data.calories;
-                    document.getElementById('protein').value = data.protein;
-                    alert("✅ Bulundu: " + data.name);
-                } else {
-                    alert("⚠️ Ürün yok. Elle girip kaydederseniz hafızaya alırım.");
-                }
-            })
-            .catch(err => alert("Hata: " + err));
-    };
-
-    // --- KRİTİK AYARLAR ---
-    const config = { 
-        fps: 10, 
-        // Tarama alanını İNCE UZUN DİKDÖRTGEN yaptık (Barkod şekli)
-        qrbox: { width: 300, height: 100 }, 
-        aspectRatio: 1.0,
-        // İŞTE EKSİK OLAN KISIM BURASIYDI 👇
-        formatsToSupport: [ 
-            Html5QrcodeSupportedFormats.EAN_13, // Standart Market Barkodu
-            Html5QrcodeSupportedFormats.EAN_8,  // Küçük Paketler
-            Html5QrcodeSupportedFormats.UPC_A   // İthal Ürünler
-        ]
-    };
-
-    // Başlat
+    // Quagga Başlatma Ayarları
     scanButton.onclick = () => {
         container.style.display = 'block';
         
-        html5QrCode.start(
-            { facingMode: "environment" }, 
-            config, 
-            qrCodeSuccessCallback
-        ).catch(err => {
-            console.error(err);
-            container.style.display = 'none';
-            alert("Kamera Hatası: " + err);
+        Quagga.init({
+            inputStream : {
+                name : "Live",
+                type : "LiveStream",
+                target: previewElement, // Kamerayı buraya bas
+                constraints: {
+                    facingMode: "environment", // Arka Kamera
+                    width: 640,
+                    height: 480,
+                    aspectRatio: {min: 1, max: 2}
+                }
+            },
+            // BURASI ÖNEMLİ: Sadece EAN (Market) barkodu arıyoruz
+            decoder : {
+                readers : ["ean_reader"] 
+            },
+            // Görüntü İyileştirme Ayarları
+            locate: true,
+            locator: {
+                patchSize: "medium",
+                halfSample: true
+            }
+        }, function(err) {
+            if (err) {
+                console.log(err);
+                alert("Kamera hatası: " + err);
+                container.style.display = 'none';
+                return;
+            }
+            Quagga.start();
         });
     };
 
+    // BARKOD BULUNUNCA NE OLSUN?
+    Quagga.onDetected(function(result) {
+        var code = result.codeResult.code;
+        
+        // Hatalı okumaları engellemek için basit kontrol
+        // Market barkodları genelde 8 veya 13 haneli olur
+        if (code && code.length > 7) {
+            bip();
+            document.getElementById('barcode').value = code;
+            
+            // Kamerayı hemen durdur
+            stopCamera();
+
+            // Backend'e sor
+            fetch(`/get_barcode_data?code=${code}`)
+                .then(response => response.json())
+                .then(data => {
+                    if(data.found) {
+                        document.getElementById('isim').value = data.name;
+                        document.getElementById('kalori').value = data.calories;
+                        document.getElementById('protein').value = data.protein;
+                        alert("✅ Bulundu: " + data.name);
+                    } else {
+                        alert("⚠️ Ürün: " + code + " veritabanında yok. Elle girerseniz kaydederim.");
+                    }
+                });
+        }
+    });
+
     function stopCamera() {
-        html5QrCode.stop().then(() => {
-            container.style.display = 'none';
-        }).catch(err => console.log(err));
+        Quagga.stop();
+        container.style.display = 'none';
     }
     stopButton.onclick = stopCamera;
-
-    // Manuel Giriş
+    
+    // Manuel Giriş Tetikleyicisi
     document.getElementById('barcode').addEventListener('change', function() {
         let code = this.value;
         if(code.length > 3) {
