@@ -4,11 +4,11 @@ import pyotp
 import random
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, Response, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, Response, session, flash
 from itertools import groupby
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'om_history_v13')
+app.secret_key = os.environ.get('SECRET_KEY', 'om_fitness_pro_v15')
 app.permanent_session_lifetime = timedelta(days=90)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -43,32 +43,28 @@ def init_db():
     try:
         conn.execute('CREATE TABLE IF NOT EXISTS supplements_def (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, dozaj TEXT)')
         conn.execute('CREATE TABLE IF NOT EXISTS supplement_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, sup_id INTEGER, tarih TEXT)')
+        
+        # Workouts Tablosu (Gelişmiş)
         conn.execute('''CREATE TABLE IF NOT EXISTS workouts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, bolge TEXT, hareket TEXT, set_sayisi INTEGER, tekrar INTEGER, agirlik REAL, tarih TEXT)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS shortcuts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, url TEXT, icon TEXT, color_theme TEXT)''')
-
-        cursor = conn.execute("PRAGMA table_info(workouts)")
-        columns = [row['name'] for row in cursor.fetchall()]
-        if 'tekrar' not in columns: conn.execute('ALTER TABLE workouts ADD COLUMN tekrar INTEGER DEFAULT 0')
-        if 'agirlik' not in columns: conn.execute('ALTER TABLE workouts ADD COLUMN agirlik REAL DEFAULT 0')
-
-        cur = conn.execute('SELECT count(*) FROM supplements_def')
-        if cur.fetchone()[0] == 0:
-            defaults = [('Creatine', '5g'), ('Whey Protein', '1 Ölçek'), ('Multivitamin', '1 Tablet'), ('Pre-Workout', '1 Ölçek'), ('Omega-3', '1000mg'), ('ZMA', 'Yatmadan Önce')]
-            conn.executemany('INSERT INTO supplements_def (name, dozaj) VALUES (?, ?)', defaults)
+            id INTEGER PRIMARY KEY AUTOINCREMENT, bolge TEXT, hareket TEXT, 
+            set_sayisi INTEGER DEFAULT 0, tekrar INTEGER DEFAULT 0, agirlik REAL DEFAULT 0,
+            sure INTEGER DEFAULT 0, mesafe REAL DEFAULT 0, tarih TEXT)''')
             
+        conn.execute('CREATE TABLE IF NOT EXISTS shortcuts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, url TEXT, icon TEXT, color_theme TEXT)')
+        
+        # Eksik Kolon Kontrolü (Migration)
+        cursor = conn.execute("PRAGMA table_info(workouts)")
+        cols = [row['name'] for row in cursor.fetchall()]
+        if 'sure' not in cols: conn.execute('ALTER TABLE workouts ADD COLUMN sure INTEGER DEFAULT 0')
+        if 'mesafe' not in cols: conn.execute('ALTER TABLE workouts ADD COLUMN mesafe REAL DEFAULT 0')
+        
         conn.commit()
-    except Exception as e:
-        print(f"DB INIT ERROR: {e}")
     finally:
         conn.close()
 
 init_db()
 
-# --- ROTALAR ---
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 @requires_auth
 def dashboard():
     conn = get_db_connection()
@@ -92,86 +88,61 @@ def fitness():
     conn = get_db_connection()
     bugun = datetime.now().strftime("%Y-%m-%d")
     
-    try:
-        if request.method == 'POST':
+    if request.method == 'POST':
+        try:
+            # SUPPLEMENT İŞLEMLERİ
             if 'toggle_sup' in request.form:
-                sup_id = request.form.get('sup_id')
-                check = conn.execute('SELECT id FROM supplement_logs WHERE sup_id = ? AND tarih = ?', (sup_id, bugun)).fetchone()
-                if check: conn.execute('DELETE FROM supplement_logs WHERE id = ?', (check['id'],))
-                else: conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?, ?)', (sup_id, bugun))
+                sid = request.form.get('sup_id')
+                check = conn.execute('SELECT id FROM supplement_logs WHERE sup_id=? AND tarih=?', (sid, bugun)).fetchone()
+                if check: conn.execute('DELETE FROM supplement_logs WHERE id=?', (check['id'],))
+                else: conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?,?)', (sid, bugun))
             
+            elif 'del_sup_def' in request.form:
+                conn.execute('DELETE FROM supplements_def WHERE id=?', (request.form.get('sup_id'),))
+            
+            elif 'add_sup_def' in request.form:
+                conn.execute('INSERT INTO supplements_def (name, dozaj) VALUES (?,?)', (request.form.get('name'), request.form.get('dozaj')))
+
+            # ANTRENMAN İŞLEMLERİ
             elif 'add_workout' in request.form:
-                sets = int(request.form.get('sets') or 0)
-                tekrar = int(request.form.get('tekrar') or 0)
-                agirlik = float(request.form.get('agirlik') or 0)
-                conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tekrar, agirlik, tarih) VALUES (?, ?, ?, ?, ?, ?)', 
-                             (request.form.get('bolge'), request.form.get('hareket'), sets, tekrar, agirlik, bugun))
-                flash('✅ Kaydedildi', 'success')
+                bolge = request.form.get('bolge')
+                
+                if bolge == 'Kardiyo':
+                    # Kardiyo Kaydı
+                    conn.execute('INSERT INTO workouts (bolge, hareket, sure, mesafe, tarih) VALUES (?,?,?,?,?)',
+                                 (bolge, request.form.get('hareket'), request.form.get('sure') or 0, request.form.get('mesafe') or 0, bugun))
+                else:
+                    # Ağırlık Kaydı
+                    conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tekrar, agirlik, tarih) VALUES (?,?,?,?,?,?)',
+                                 (bolge, request.form.get('hareket'), request.form.get('sets') or 0, request.form.get('tekrar') or 0, request.form.get('agirlik') or 0, bugun))
+                
+                flash('✅ Eklendi', 'success')
 
             elif 'del_workout' in request.form:
-                conn.execute('DELETE FROM workouts WHERE id = ?', (request.form.get('w_id'),))
-            
+                conn.execute('DELETE FROM workouts WHERE id=?', (request.form.get('w_id'),))
+
             conn.commit()
+        except Exception as e: flash(f"Hata: {e}", "danger")
+        return redirect(url_for('fitness'))
 
-        # 1. BUGÜNÜN VERİLERİ
-        sups_def = conn.execute('SELECT * FROM supplements_def').fetchall()
-        taken_logs = conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih = ?', (bugun,)).fetchall()
-        taken_ids = [row['sup_id'] for row in taken_logs]
-        supplement_list = [{'id': s['id'], 'name': s['name'], 'dozaj': s['dozaj'], 'taken': (s['id'] in taken_ids)} for s in sups_def]
-        
-        todays_workout = conn.execute('SELECT * FROM workouts WHERE tarih = ? ORDER BY id DESC', (bugun,)).fetchall()
+    # Verileri Çek
+    sups = conn.execute('SELECT * FROM supplements_def').fetchall()
+    taken = [r['sup_id'] for r in conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih=?', (bugun,)).fetchall()]
+    sup_list = [{'id':s['id'], 'name':s['name'], 'dozaj':s['dozaj'], 'taken':(s['id'] in taken)} for s in sups]
+    
+    # Geçmiş Veriler
+    history_raw = conn.execute('SELECT * FROM workouts ORDER BY tarih DESC, id DESC LIMIT 50').fetchall()
+    history = [{'date': k, 'items': list(g)} for k, g in groupby(history_raw, lambda x: x['tarih'])]
 
-        # 2. GEÇMİŞ ANTRENMANLAR (Bugün hariç, son 30 gün)
-        history_raw = conn.execute('SELECT * FROM workouts WHERE tarih < ? ORDER BY tarih DESC, id DESC LIMIT 50', (bugun,)).fetchall()
-        
-        # Tarihe göre grupla: {'2023-12-14': [Hareket1, Hareket2], ...}
-        history_grouped = []
-        for key, group in groupby(history_raw, key=lambda x: x['tarih']):
-            history_grouped.append({'date': key, 'items': list(group)})
-
-        # 3. TAKVİM (Haftalık Zincir)
-        dates = []
-        for i in range(6, -1, -1):
-            d = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-            day_name = (datetime.now() - timedelta(days=i)).strftime("%a")
-            tr = {'Mon':'Pzt', 'Tue':'Sal', 'Wed':'Çar', 'Thu':'Per', 'Fri':'Cum', 'Sat':'Cmt', 'Sun':'Paz'}
-            dates.append({'date': d, 'day': tr.get(day_name, day_name)})
-        
-        logs = conn.execute("SELECT DISTINCT tarih FROM workouts WHERE tarih >= date('now', '-7 days')").fetchall()
-        active_dates = [l['tarih'] for l in logs]
-        calendar_data = [{'day': d['day'], 'active': (d['date'] in active_dates), 'is_today': (d['date'] == bugun)} for d in dates]
-
-    except Exception as e:
-        print(f"FITNESS ERROR: {e}")
-        flash(f"Hata: {e}", "danger")
-        supplement_list, todays_workout, history_grouped, calendar_data = [], [], [], []
-    finally:
-        conn.close()
-
-    return render_template('fitness.html', 
-                           supplements=supplement_list, 
-                           workouts=todays_workout, 
-                           history=history_grouped, 
-                           calendar=calendar_data)
-
-@app.route('/analysis')
-@requires_auth
-def analysis():
-    conn = get_db_connection()
-    try:
-        total_workouts = conn.execute('SELECT count(*) FROM workouts').fetchone()[0]
-        fav_bolge = conn.execute('SELECT bolge, count(*) as c FROM workouts GROUP BY bolge ORDER BY c DESC LIMIT 1').fetchone()
-        fav_bolge_name = fav_bolge['bolge'] if fav_bolge else "Yok"
-        sup_count = conn.execute("SELECT count(*) FROM supplement_logs WHERE tarih >= date('now', '-30 days')").fetchone()[0]
-        
-        dist = conn.execute('SELECT bolge, count(*) as count FROM workouts GROUP BY bolge').fetchall()
-        chart_labels = [row['bolge'] for row in dist]
-        chart_data = [row['count'] for row in dist]
-    except:
-        total_workouts, fav_bolge_name, sup_count, chart_labels, chart_data = 0, "--", 0, [], []
-    finally:
-        conn.close()
-    return render_template('analysis.html', total=total_workouts, fav=fav_bolge_name, sup_score=sup_count, chart_labels=chart_labels, chart_data=chart_data)
+    # Takvim
+    calendar = []
+    active_dates = [r['tarih'] for r in conn.execute("SELECT DISTINCT tarih FROM workouts WHERE tarih >= date('now', '-7 days')").fetchall()]
+    for i in range(6, -1, -1):
+        dt = (datetime.now() - timedelta(days=i))
+        calendar.append({'day': dt.strftime("%a"), 'active': (dt.strftime("%Y-%m-%d") in active_dates), 'is_today': (dt.strftime("%Y-%m-%d") == bugun)})
+    
+    conn.close()
+    return render_template('fitness.html', supplements=sup_list, history=history, calendar=calendar)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)
