@@ -4,11 +4,9 @@
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
-    <div id="toast-box" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(50, 50, 50, 0.9); padding: 12px 24px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; gap: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.5);">
-      {% for category, message in messages %}
-        <i class="fas fa-check-circle" style="color: #30D158;"></i>
-        <span style="color: white; font-weight: 600;">{{ message }}</span>
-      {% endfor %}
+    <div id="toast-box" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background: rgba(48, 209, 88, 0.9); padding: 12px 24px; border-radius: 25px; backdrop-filter: blur(10px); display: flex; align-items: center; gap: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.5);">
+      <i class="fas fa-check-circle" style="color: white;"></i>
+      <span style="color: white; font-weight: 600;">{{ messages[0][1] }}</span>
     </div>
     <script>
         setTimeout(function(){ document.getElementById('toast-box').style.opacity = '0'; }, 2000);
@@ -18,18 +16,15 @@
 {% endwith %}
 
 
-<h4 style="margin: 0 0 10px 0; font-size: 14px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 1px;">Haftalık Aktivite</h4>
+<h4 style="margin: 0 0 10px 0; font-size: 14px; color: var(--text-sec); text-transform: uppercase;">Aktivite</h4>
 <div class="ios-card" style="display: flex; justify-content: space-between; padding: 15px;">
     {% for day in calendar %}
     <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
         <div style="
-            width: 32px; height: 32px; 
-            border-radius: 50%; 
+            width: 32px; height: 32px; border-radius: 50%; 
             display: flex; align-items: center; justify-content: center;
             background: {{ 'var(--success)' if day.active else 'rgba(255,255,255,0.05)' }};
-            border: {{ 'none' if day.active else '1px solid rgba(255,255,255,0.1)' }};
             color: {{ 'black' if day.active else 'transparent' }};
-            box-shadow: {{ '0 0 10px rgba(48, 209, 88, 0.4)' if day.active else 'none' }};
         ">
             {% if day.active %}<i class="fas fa-check" style="font-size: 14px;"></i>{% endif %}
         </div>
@@ -44,78 +39,53 @@
 <div class="ios-card">
     <form method="POST">
         <input type="hidden" name="add_workout" value="1">
-        
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <div style="flex: 1;">
                 <label class="small-label">Bölge</label>
-                <select name="bolge">
-                    <option>Göğüs</option><option>Sırt</option><option>Bacak</option><option>Omuz</option><option>Kol</option><option>Kardiyo</option><option>Karın</option>
-                </select>
+                <select name="bolge"><option>Göğüs</option><option>Sırt</option><option>Bacak</option><option>Omuz</option><option>Kol</option><option>Kardiyo</option><option>Karın</option></select>
             </div>
             <div style="flex: 2;">
-                <label class="small-label">Hareket Adı</label>
+                <label class="small-label">Hareket</label>
                 <input type="text" name="hareket" placeholder="Örn: Incline Press" required>
             </div>
         </div>
-
         <div style="display: flex; gap: 10px; align-items: flex-end;">
-            <div style="flex: 1;">
-                <label class="small-label">Set</label>
-                <input type="number" name="sets" placeholder="4" required>
-            </div>
-            <div style="flex: 1;">
-                <label class="small-label">Tekrar</label>
-                <input type="number" name="tekrar" placeholder="12" required>
-            </div>
-            <div style="flex: 1;">
-                <label class="small-label">Kg</label>
-                <input type="number" name="agirlik" placeholder="60" step="0.5">
-            </div>
-            
-            <button type="submit" class="btn-primary" style="width: 50px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-plus"></i>
-            </button>
+            <div style="flex: 1;"><label class="small-label">Set</label><input type="number" name="sets" placeholder="4" required></div>
+            <div style="flex: 1;"><label class="small-label">Tekrar</label><input type="number" name="tekrar" placeholder="12" required></div>
+            <div style="flex: 1;"><label class="small-label">Kg</label><input type="number" name="agirlik" placeholder="60" step="0.5"></div>
+            <button type="submit" class="btn-primary" style="width: 50px; height: 44px; border-radius: 10px;"><i class="fas fa-plus"></i></button>
         </div>
     </form>
 </div>
 
-{% for w in workouts %}
-<div class="ios-card" style="padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-    <div style="display: flex; align-items: center;">
-        <div style="background: rgba(10, 132, 255, 0.2); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px; color: var(--primary);">
-            <span style="font-weight: 800; font-size: 14px;">{{ w.set_sayisi }}x</span>
-        </div>
-        <div>
-            <div style="font-weight: 600; color: white;">{{ w.hareket }}</div>
-            <div style="font-size: 12px; color: var(--text-sec);">
-                {{ w.agirlik }}kg • {{ w.tekrar }} Tekrar • {{ w.bolge }}
+{% if workouts %}
+<div style="margin-bottom: 20px;">
+    {% for w in workouts %}
+    <div class="ios-card" style="padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center;">
+            <div style="background: rgba(10, 132, 255, 0.2); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px; color: var(--primary); font-weight: 800;">
+                {{ w.set_sayisi }}x
+            </div>
+            <div>
+                <div style="font-weight: 600; color: white;">{{ w.hareket }}</div>
+                <div style="font-size: 12px; color: var(--text-sec);">{{ w.agirlik }}kg • {{ w.tekrar }} Tekrar • {{ w.bolge }}</div>
             </div>
         </div>
+        <form method="POST" style="margin:0;"><input type="hidden" name="del_workout" value="1"><input type="hidden" name="w_id" value="{{ w.id }}"><button type="submit" style="background:none;border:none;color:var(--text-sec);"><i class="fas fa-times"></i></button></form>
     </div>
-    <form method="POST" style="margin:0;">
-        <input type="hidden" name="del_workout" value="1">
-        <input type="hidden" name="w_id" value="{{ w.id }}">
-        <button type="submit" style="background: none; border: none; color: var(--text-sec); opacity: 0.5;">
-            <i class="fas fa-times-circle"></i>
-        </button>
-    </form>
+    {% endfor %}
 </div>
-{% endfor %}
-
+{% endif %}
 
 <h4 style="margin: 30px 0 10px 0; font-size: 18px;">Günlük Kür</h4>
 <div class="ios-card">
     {% for sup in supplements %}
     <form method="POST" style="margin:0;">
-        <input type="hidden" name="toggle_sup" value="1">
-        <input type="hidden" name="sup_id" value="{{ sup.id }}">
-        <button type="submit" style="background: none; border: none; width: 100%; padding: 0; text-align: left;">
+        <input type="hidden" name="toggle_sup" value="1"><input type="hidden" name="sup_id" value="{{ sup.id }}">
+        <button type="submit" style="background:none;border:none;width:100%;padding:0;text-align:left;">
             <div class="check-row">
                 <div style="display: flex; align-items: center;">
-                    <div style="
-                        width: 32px; height: 32px; 
-                        background: {{ 'rgba(48, 209, 88, 0.2)' if sup.taken else 'rgba(255,255,255,0.1)' }}; 
-                        border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                    <div style="width: 32px; height: 32px; background: {{ 'rgba(48, 209, 88, 0.2)' if sup.taken else 'rgba(255,255,255,0.1)' }}; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
                         <i class="fas fa-pills" style="color: {{ '#30D158' if sup.taken else '#8E8E93' }};"></i>
                     </div>
                     <div>
@@ -123,19 +93,36 @@
                         <div style="font-size: 12px; color: var(--text-sec);">{{ sup.dozaj }}</div>
                     </div>
                 </div>
-                {% if sup.taken %}
-                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>
-                {% else %}
-                    <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #444;"></div>
-                {% endif %}
+                {% if sup.taken %}<i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>{% else %}<div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #444;"></div>{% endif %}
             </div>
         </button>
     </form>
     {% endfor %}
 </div>
 
-<style>
-    .small-label { font-size: 10px; color: var(--text-sec); margin-left: 4px; margin-bottom: 2px; display: block; }
-</style>
+{% if history %}
+<h4 style="margin: 40px 0 10px 0; font-size: 18px; color: var(--text-sec);">Geçmiş Kayıtlar</h4>
+{% for group in history %}
+    <div style="margin-bottom: 20px;">
+        <div style="font-size: 12px; color: var(--primary); font-weight: bold; margin-bottom: 5px; margin-left: 5px;">
+            <i class="fas fa-calendar-alt me-1"></i> {{ group.date }}
+        </div>
+        <div class="ios-card" style="padding: 0;">
+            {% for item in group.items %}
+            <div style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-weight: 600; font-size: 14px;">{{ item.hareket }}</span>
+                    <span style="color: var(--text-sec); font-size: 12px; margin-left: 5px;">({{ item.bolge }})</span>
+                </div>
+                <div style="font-size: 12px; color: white;">
+                    <span style="color: var(--success);">{{ item.agirlik }}kg</span> • {{ item.set_sayisi }}x{{ item.tekrar }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endfor %}
+{% endif %}
 
+<style>.small-label { font-size: 10px; color: var(--text-sec); margin-left: 4px; margin-bottom: 2px; display: block; }</style>
 {% endblock %}
