@@ -8,11 +8,14 @@ from flask import Flask, render_template, request, redirect, url_for, Response, 
 from itertools import groupby
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'om_final_edition_v200')
+app.secret_key = os.environ.get('SECRET_KEY', 'om_final_v300')
 app.permanent_session_lifetime = timedelta(days=90)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DB_NAME = os.path.join(BASE_DIR, "lifeos.db")
+
+# --- İŞTE ÇÖZÜM BURADA: İSMİ DEĞİŞTİRDİM ---
+# Eski bozuk dosya yerine tertemiz bir dosya açacak.
+DB_NAME = os.path.join(BASE_DIR, "lifeos_new.db") 
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -45,6 +48,7 @@ def init_db():
         conn.execute('CREATE TABLE IF NOT EXISTS supplement_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, sup_id INTEGER, tarih TEXT)')
         conn.execute('CREATE TABLE IF NOT EXISTS shortcuts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, url TEXT, icon TEXT, color_theme TEXT)')
         
+        # Workouts Tablosunu Sıfırdan Temiz Kuruyoruz
         conn.execute('''CREATE TABLE IF NOT EXISTS workouts (
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
             bolge TEXT, hareket TEXT, 
@@ -52,14 +56,6 @@ def init_db():
             sure INTEGER DEFAULT 0, mesafe REAL DEFAULT 0, 
             tarih TEXT
         )''')
-
-        # Sütun Eksikse Tamamla
-        cursor = conn.execute("PRAGMA table_info(workouts)")
-        cols = [row['name'] for row in cursor.fetchall()]
-        if 'sure' not in cols: conn.execute('ALTER TABLE workouts ADD COLUMN sure INTEGER DEFAULT 0')
-        if 'mesafe' not in cols: conn.execute('ALTER TABLE workouts ADD COLUMN mesafe REAL DEFAULT 0')
-        if 'tekrar' not in cols: conn.execute('ALTER TABLE workouts ADD COLUMN tekrar INTEGER DEFAULT 0')
-        if 'agirlik' not in cols: conn.execute('ALTER TABLE workouts ADD COLUMN agirlik REAL DEFAULT 0')
 
         # Varsayılanlar
         cur = conn.execute('SELECT count(*) FROM supplements_def')
@@ -103,83 +99,68 @@ def fitness():
     
     if request.method == 'POST':
         try:
-            # 1. SUPPLEMENT TİKLEME
             if 'toggle_sup' in request.form:
                 sid = request.form.get('sup_id')
                 check = conn.execute('SELECT id FROM supplement_logs WHERE sup_id=? AND tarih=?', (sid, bugun)).fetchone()
                 if check: conn.execute('DELETE FROM supplement_logs WHERE id=?', (check['id'],))
                 else: conn.execute('INSERT INTO supplement_logs (sup_id, tarih) VALUES (?,?)', (sid, bugun))
             
-            # 2. SUPPLEMENT YÖNETİMİ
             elif 'add_sup_def' in request.form:
                 conn.execute('INSERT INTO supplements_def (name, dozaj) VALUES (?,?)', (request.form.get('name'), request.form.get('dozaj')))
             elif 'del_sup_def' in request.form:
                 conn.execute('DELETE FROM supplements_def WHERE id=?', (request.form.get('sup_id'),))
 
-            # 3. ANTRENMAN EKLEME
             elif 'add_workout' in request.form:
                 bolge = request.form.get('bolge')
-                hareket = request.form.get('hareket')
                 if bolge == 'Kardiyo':
                     conn.execute('INSERT INTO workouts (bolge, hareket, sure, mesafe, tarih) VALUES (?,?,?,?,?)',
-                                 (bolge, hareket, request.form.get('sure') or 0, request.form.get('mesafe') or 0, bugun))
+                                 (bolge, request.form.get('hareket'), request.form.get('sure') or 0, request.form.get('mesafe') or 0, bugun))
                 else:
                     conn.execute('INSERT INTO workouts (bolge, hareket, set_sayisi, tekrar, agirlik, tarih) VALUES (?,?,?,?,?,?)',
-                                 (bolge, hareket, request.form.get('sets') or 0, request.form.get('tekrar') or 0, request.form.get('agirlik') or 0, bugun))
+                                 (bolge, request.form.get('hareket'), request.form.get('sets') or 0, request.form.get('tekrar') or 0, request.form.get('agirlik') or 0, bugun))
                 flash('Kaydedildi', 'success')
 
-            # 4. ANTRENMAN DÜZENLEME (YENİ!)
             elif 'edit_workout' in request.form:
                 w_id = request.form.get('w_id')
                 bolge = request.form.get('bolge')
-                hareket = request.form.get('hareket')
-                
                 if bolge == 'Kardiyo':
-                    conn.execute('''UPDATE workouts SET bolge=?, hareket=?, sure=?, mesafe=? WHERE id=?''',
-                                 (bolge, hareket, request.form.get('sure'), request.form.get('mesafe'), w_id))
+                    conn.execute('UPDATE workouts SET hareket=?, sure=?, mesafe=? WHERE id=?',
+                                 (request.form.get('hareket'), request.form.get('sure'), request.form.get('mesafe'), w_id))
                 else:
-                    conn.execute('''UPDATE workouts SET bolge=?, hareket=?, set_sayisi=?, tekrar=?, agirlik=? WHERE id=?''',
-                                 (bolge, hareket, request.form.get('sets'), request.form.get('tekrar'), request.form.get('agirlik'), w_id))
+                    conn.execute('UPDATE workouts SET hareket=?, set_sayisi=?, tekrar=?, agirlik=? WHERE id=?',
+                                 (request.form.get('hareket'), request.form.get('sets'), request.form.get('tekrar'), request.form.get('agirlik'), w_id))
                 flash('Güncellendi', 'info')
 
-            # 5. ANTRENMAN SİLME
             elif 'del_workout' in request.form:
                 conn.execute('DELETE FROM workouts WHERE id=?', (request.form.get('w_id'),))
 
             conn.commit()
         except Exception as e:
-            print(f"HATA: {e}")
-            flash(f"İşlem Hatası: {e}", "danger")
+            flash(f"Hata: {str(e)}", "danger")
         
         return redirect(url_for('fitness'))
 
-    # VERİ ÇEKME
     sups = conn.execute('SELECT * FROM supplements_def').fetchall()
     taken = [r['sup_id'] for r in conn.execute('SELECT sup_id FROM supplement_logs WHERE tarih=?', (bugun,)).fetchall()]
     sup_list = [{'id':s['id'], 'name':s['name'], 'dozaj':s['dozaj'], 'taken':(s['id'] in taken)} for s in sups]
     
-    # TÜM GEÇMİŞ (GÜN GÜN GRUPLAMA)
-    # LIMIT 100 ile son 100 hareketi çekiyoruz, sayfa çok uzamasın.
-    all_workouts = conn.execute('SELECT * FROM workouts ORDER BY tarih DESC, id DESC LIMIT 100').fetchall()
-    
+    # Geçmiş Listesi
+    all_workouts = conn.execute('SELECT * FROM workouts ORDER BY tarih DESC, id DESC LIMIT 50').fetchall()
     timeline = []
     for date, items in groupby(all_workouts, key=lambda x: x['tarih']):
-        # Tarihi güzele çevir (2023-12-14 -> Bugün / Dün / 14.12.2023)
         date_obj = datetime.strptime(date, "%Y-%m-%d")
-        if date == bugun: display_date = "Bugün"
-        elif date == (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"): display_date = "Dün"
-        else: display_date = date_obj.strftime("%d.%m.%Y")
-        
-        timeline.append({'date': display_date, 'raw_date': date, 'items': list(items)})
+        if date == bugun: d_display = "Bugün"
+        elif date == (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"): d_display = "Dün"
+        else: d_display = date_obj.strftime("%d.%m.%Y")
+        timeline.append({'date': d_display, 'items': list(items)})
 
-    # Takvim Verisi
+    # Takvim
     calendar = []
-    active_dates_raw = conn.execute("SELECT DISTINCT tarih FROM workouts WHERE tarih >= date('now', '-7 days')").fetchall()
-    active_dates = [r['tarih'] for r in active_dates_raw]
+    active = [r['tarih'] for r in conn.execute("SELECT DISTINCT tarih FROM workouts WHERE tarih >= date('now', '-7 days')").fetchall()]
     for i in range(6, -1, -1):
         dt = datetime.now() - timedelta(days=i)
         d_str = dt.strftime("%Y-%m-%d")
-        calendar.append({'day': dt.strftime("%a"), 'active': (d_str in active_dates), 'is_today': (d_str == bugun)})
+        calendar.append({'day': dt.strftime("%a"), 'active': (d_str in active), 'is_today': (d_str == bugun)})
     
     conn.close()
     return render_template('fitness.html', supplements=sup_list, timeline=timeline, calendar=calendar)
