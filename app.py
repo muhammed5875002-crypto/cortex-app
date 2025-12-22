@@ -71,6 +71,11 @@ def init_db():
 
 init_db()
 
+# --- PING BOTU İÇİN ÖZEL ROTA ---
+@app.route('/ping')
+def ping():
+    return "Pong! Sunucu uyanik.", 200
+
 # --- ROTALAR ---
 
 @app.route('/', methods=['GET', 'POST'])

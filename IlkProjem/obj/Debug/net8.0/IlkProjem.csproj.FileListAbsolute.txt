@@ -1,0 +1,15 @@
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/bin/Debug/net8.0/IlkProjem
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/bin/Debug/net8.0/IlkProjem.deps.json
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/bin/Debug/net8.0/IlkProjem.runtimeconfig.json
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/bin/Debug/net8.0/IlkProjem.dll
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/bin/Debug/net8.0/IlkProjem.pdb
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.GeneratedMSBuildEditorConfig.editorconfig
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.AssemblyInfoInputs.cache
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.AssemblyInfo.cs
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.csproj.CoreCompileInputs.cache
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.sourcelink.json
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.dll
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/refint/IlkProjem.dll
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.pdb
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/IlkProjem.genruntimeconfig.cache
+/Users/muhammedoztoprak/Desktop/CORTEX/IlkProjem/obj/Debug/net8.0/ref/IlkProjem.dll
